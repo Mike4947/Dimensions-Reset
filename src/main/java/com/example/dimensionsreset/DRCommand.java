@@ -42,8 +42,6 @@ public class DRCommand implements CommandExecutor, TabCompleter {
     private CommandSender wildernessConfirmer2 = null;
     private String wildernessWorldToReset = null;
     private static final Pattern TIME_PATTERN = Pattern.compile("(\\d+)([hms])");
-    
-    // --- NEW: Set to track recently reset dimensions for portal interception ---
     private final Set<String> justResetDimensions = new HashSet<>();
 
     public DRCommand(DimensionsReset plugin, DataManager dataManager, RegionManager regionManager, ResetHandler resetHandler, WandManager wandManager) {
@@ -57,7 +55,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(ChatColor.GOLD + "DimensionsReset - Final Version");
+            sender.sendMessage(ChatColor.GOLD + "DimensionsReset v1.3.3");
             return true;
         }
 
@@ -74,81 +72,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         }
         return true;
     }
-    
-    // --- This is the primary method that has been changed ---
-    private void resetDimension(String dimensionName, @Nullable String scheduleId) {
-        World worldToReset = findWorld(dimensionName);
-        if (worldToReset == null) {
-            // Attempt to load the world if it's unloaded, for the deletion process
-            World.Environment env = getEnvironmentFromName(dimensionName);
-            if (env != null) {
-                worldToReset = Bukkit.createWorld(new WorldCreator(dimensionName).environment(env));
-            }
-            if (worldToReset == null) {
-                plugin.getLogger().severe("RESET FAILED: Could not find or load world for '" + dimensionName + "'");
-                cleanupTasksForDim(dimensionName);
-                return;
-            }
-        }
 
-        Bukkit.broadcastMessage(getMessage("dimension_reset_messages.reset_now").replace("%dimension%", getCapitalizedName(dimensionName)));
-        playSound(plugin.getConfig().getString("sounds.reset_success"));
-
-        plugin.getLogger().info("[Reset Stage 1/2] Teleporting players and unloading dimension...");
-        Location spawnLocation = Bukkit.getWorlds().get(0).getSpawnLocation();
-        for (Player player : new ArrayList<>(worldToReset.getPlayers())) {
-            player.teleport(spawnLocation);
-            player.sendMessage(ChatColor.GREEN + getCapitalizedName(dimensionName) + " is resetting! You have been teleported to safety.");
-        }
-
-        File worldFolder = worldToReset.getWorldFolder();
-        String worldKey = worldToReset.getKey().toString();
-        World.Environment env = worldToReset.getEnvironment();
-
-        if (!Bukkit.unloadWorld(worldToReset, false)) {
-            plugin.getLogger().severe("RESET FAILED: Failed to unload " + worldToReset.getName());
-            cleanupTasksForDim(dimensionName);
-            return;
-        }
-
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            plugin.getLogger().info("[Reset Stage 2/2] Deleting world files for " + worldFolder.getName());
-            try {
-                deleteDirectory(worldFolder);
-            } catch (IOException e) {
-                plugin.getLogger().severe("RESET FAILED: Could not delete world files.");
-                e.printStackTrace();
-                cleanupTasksForDim(dimensionName);
-                return;
-            }
-
-            // --- FINAL FIX: Recreate the world with code and flag it for portal interception ---
-            plugin.getLogger().info("[Reset Stage 3/3] Recreating dimension " + worldKey);
-            Bukkit.createWorld(new WorldCreator(worldKey).environment(env));
-
-            // Flag this dimension as needing portal interception by our PlayerListener
-            justResetDimensions.add(dimensionName.toLowerCase());
-            
-            plugin.getLogger().info("SUCCESS: " + getCapitalizedName(dimensionName) + " has been reset. No restart needed.");
-
-            if (scheduleId != null) {
-                dataManager.setLastResetTime(scheduleId, Instant.now().getEpochSecond());
-                plugin.getLogger().info("Updated last reset time for schedule: " + scheduleId);
-            }
-            cleanupTasksForDim(dimensionName);
-        }, 20L);
-    }
-    
-    // --- NEW Public methods for the Portal Listener ---
-    public boolean wasDimensionJustReset(String dimensionName) {
-        return justResetDimensions.contains(dimensionName.toLowerCase());
-    }
-
-    public void acknowledgeReset(String dimensionName) {
-        justResetDimensions.remove(dimensionName.toLowerCase());
-    }
-
-    // --- The rest of the file is complete and contains all logic ---
     private void handleDimensionCommands(CommandSender sender, String sub, String[] args) {
         if (!sender.hasPermission("dimensionsreset.admin")) { noPerm(sender); return; }
         if (args.length < 2) { sender.sendMessage(ChatColor.RED + "Usage: /dr " + sub + " <the_end|the_nether|all>"); return; }
@@ -171,7 +95,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         else if (sub.equals("region")) handleRegion(sender, args);
         else if (sub.equals("resetwilderness")) handleResetWilderness(sender, args);
     }
-
+    
     public boolean isResetScheduled(String dimension) { return scheduledResetTasks.containsKey(dimension.toLowerCase()); }
 
     public long parseTime(String timeString) {
@@ -195,7 +119,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
     public void scheduleReset(String dimension, long timeInSeconds, @Nullable String scheduleId) {
         String dimKey = dimension.toLowerCase();
         if (isResetScheduled(dimKey)) return;
-
+        
         long timeInTicks = timeInSeconds * 20L;
         scheduledResetTimes.put(dimKey, Instant.now().plusSeconds(timeInSeconds));
         this.activeScheduleId = scheduleId;
@@ -390,13 +314,67 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         else if (subAction.equals("exit")) exitPreviewMode(player, true);
     }
     
+    private void resetDimension(String dimensionName, @Nullable String scheduleId) {
+        World worldToReset = findWorld(dimensionName);
+        if (worldToReset == null) {
+            plugin.getLogger().severe("RESET FAILED: Could not find any loaded world for '" + dimensionName + "'");
+            cleanupTasksForDim(dimensionName);
+            return;
+        }
+
+        Bukkit.broadcastMessage(getMessage("dimension_reset_messages.reset_now").replace("%dimension%", getCapitalizedName(dimensionName)));
+        playSound(plugin.getConfig().getString("sounds.reset_success"));
+
+        plugin.getLogger().info("[Reset Stage 1/2] Teleporting players and unloading dimension...");
+        Location spawnLocation = Bukkit.getWorlds().get(0).getSpawnLocation();
+        for (Player player : new ArrayList<>(worldToReset.getPlayers())) {
+            player.teleport(spawnLocation);
+            player.sendMessage(ChatColor.GREEN + getCapitalizedName(dimensionName) + " is resetting! You have been teleported to safety.");
+        }
+
+        File worldFolder = worldToReset.getWorldFolder();
+        String worldKey = worldToReset.getKey().toString();
+        World.Environment env = worldToReset.getEnvironment();
+
+        if (!Bukkit.unloadWorld(worldToReset, false)) {
+            plugin.getLogger().severe("RESET FAILED: Failed to unload " + worldToReset.getName());
+            cleanupTasksForDim(dimensionName);
+            return;
+        }
+
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            plugin.getLogger().info("[Reset Stage 2/2] Deleting world files for " + worldFolder.getName());
+            try { deleteDirectory(worldFolder); } catch (IOException e) {
+                plugin.getLogger().severe("RESET FAILED: Could not delete world files.");
+                e.printStackTrace();
+                cleanupTasksForDim(dimensionName);
+                return;
+            }
+
+            plugin.getLogger().info("[Reset Stage 3/3] Recreating dimension " + worldKey);
+            Bukkit.createWorld(new WorldCreator(worldKey).environment(env));
+            justResetDimensions.add(dimensionName.toLowerCase());
+            
+            plugin.getLogger().info("SUCCESS: " + getCapitalizedName(dimensionName) + " has been reset.");
+
+            if (scheduleId != null) {
+                dataManager.setLastResetTime(scheduleId, Instant.now().getEpochSecond());
+                plugin.getLogger().info("Updated last reset time for schedule: " + scheduleId);
+            }
+            cleanupTasksForDim(dimensionName);
+        }, 20L);
+    }
+    
     private void deleteDirectory(File directory) throws IOException {
         if (directory.exists()) {
             File[] files = directory.listFiles();
             if (files != null) {
                 for (File file : files) {
-                    if (file.isDirectory()) deleteDirectory(file);
-                    else if (!file.delete()) throw new IOException("Failed to delete file: " + file);
+                    if (file.isDirectory()) {
+                        deleteDirectory(file);
+                    } else {
+                        if (!file.delete()) throw new IOException("Failed to delete file: " + file);
+                    }
                 }
             }
             if (!directory.delete()) throw new IOException("Failed to delete directory: " + directory);

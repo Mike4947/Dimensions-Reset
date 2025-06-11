@@ -8,19 +8,31 @@ public final class DimensionsReset extends JavaPlugin {
 
     private DRCommand drCommand;
 
+    /**
+     * The onLoad method runs BEFORE onEnable.
+     * This is the new, correct place to register commands for modern Paper servers.
+     */
+    @Override
+    public void onLoad() {
+        // Initialize and register the command executor here
+        this.drCommand = new DRCommand(this);
+        Objects.requireNonNull(getCommand("dr")).setExecutor(this.drCommand);
+        getLogger().info("DimensionsReset commands have been registered.");
+    }
+
     @Override
     public void onEnable() {
+        // Save the default config.yml to the plugin's folder
         saveDefaultConfig();
 
-        this.drCommand = new DRCommand(this);
-        Objects.requireNonNull(getCommand("dr")).setExecutor(drCommand);
-
+        // The main startup message
         getLogger().info("DimensionsReset has been enabled successfully!");
     }
 
     @Override
     public void onDisable() {
-        // Cancel any pending tasks on shutdown to prevent issues
+        // Plugin shutdown logic
+        // This will now work correctly because drCommand was initialized in onLoad
         if (drCommand != null) {
             drCommand.cancelAllTasks();
             getLogger().info("Cancelled all scheduled dimension resets.");

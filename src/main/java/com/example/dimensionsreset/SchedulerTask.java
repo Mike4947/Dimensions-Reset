@@ -5,7 +5,6 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.time.*;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 
 public class SchedulerTask extends BukkitRunnable {
@@ -22,13 +21,7 @@ public class SchedulerTask extends BukkitRunnable {
 
     @Override
     public void run() {
-        // First, check if the whole system is enabled.
         if (!plugin.getConfig().getBoolean("automated_resets.enabled", false)) {
-            return;
-        }
-
-        // Don't run if a manual reset is already in progress.
-        if (commandHandler.isResetScheduled()) {
             return;
         }
 
@@ -37,9 +30,24 @@ public class SchedulerTask extends BukkitRunnable {
 
         long now = Instant.now().getEpochSecond();
 
+        // Loop through each schedule defined in the config
         for (String key : schedulesSection.getKeys(false)) {
             ConfigurationSection schedule = schedulesSection.getConfigurationSection(key);
             if (schedule == null) continue;
+
+            String dimension = schedule.getString("dimension");
+            if (dimension == null || dimension.isBlank()) {
+                plugin.getLogger().warning("Automated reset schedule '" + key + "' is missing a 'dimension'. Skipping.");
+                continue;
+            }
+
+            // --- THIS IS THE CORRECTED LOGIC ---
+            // Before trying to schedule a reset for this dimension, first check if one is already running.
+            // If so, we 'continue' to the next schedule in the config.
+            if (commandHandler.isResetScheduled(dimension)) {
+                continue;
+            }
+            // --- End of fix ---
 
             String scheduleId = schedule.getString("id");
             if (scheduleId == null) {
@@ -47,7 +55,6 @@ public class SchedulerTask extends BukkitRunnable {
                 continue;
             }
 
-            String dimension = schedule.getString("dimension");
             String announcementTimeStr = schedule.getString("announcement_time", "1h");
             long announcementSeconds = commandHandler.parseTime(announcementTimeStr);
 
@@ -58,9 +65,8 @@ public class SchedulerTask extends BukkitRunnable {
 
             if (nextResetTime > 0 && now >= (nextResetTime - announcementSeconds)) {
                 plugin.getLogger().info("Automated reset for '" + dimension + "' ('" + scheduleId + "') is due. Triggering scheduled reset.");
-                // Use the main command handler to start the reset process
                 commandHandler.scheduleReset(dimension, announcementSeconds, scheduleId);
-                // Break after triggering one to avoid conflicts. The task will run again next minute.
+                // Break after triggering one to avoid potential conflicts within the same run.
                 break;
             }
         }
@@ -73,8 +79,9 @@ public class SchedulerTask extends BukkitRunnable {
 
         if (type.equalsIgnoreCase("INTERVAL")) {
             long intervalSeconds = commandHandler.parseTime(value);
-            if (lastReset == 0) { // If it's never run, schedule it for the future
-                return Instant.now().getEpochSecond() + intervalSeconds;
+            if (lastReset == 0) { // If it's never run, the "last reset" time is now, for calculation purposes.
+                lastReset = Instant.now().getEpochSecond();
+                dataManager.setLastResetTime(scheduleId, lastReset);
             }
             return lastReset + intervalSeconds;
         }
@@ -87,11 +94,12 @@ public class SchedulerTask extends BukkitRunnable {
                 ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
                 ZonedDateTime nextOccurrence = now.with(day).with(time);
 
+                // If the calculated time is in the past for this week, get the occurrence for next week.
                 if (now.isAfter(nextOccurrence)) {
                     nextOccurrence = nextOccurrence.plusWeeks(1);
                 }
 
-                // If it already reset since the last calculated occurrence, find the next one
+                // If the last reset happened AFTER the most recent valid reset time, it means we need to find the NEXT one.
                 if (lastReset >= nextOccurrence.toEpochSecond()) {
                     nextOccurrence = nextOccurrence.plusWeeks(1);
                 }

@@ -9,8 +9,8 @@ We are committed to providing security updates for the most recent versions of t
 | Version | Supported          |
 | ------- | ------------------ |
 | 2.x     | :white_check_mark: |
-| 1.x     | :x:                |
-| < 1.0   | :x:                |
+| 1.x     | :white_check_mark: |
+| < 1.0   | :white_check_mark: |
 
 ## 🐛 Reporting a Vulnerability
 

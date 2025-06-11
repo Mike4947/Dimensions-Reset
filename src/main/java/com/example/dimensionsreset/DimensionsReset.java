@@ -11,7 +11,6 @@ import java.util.List;
 
 public final class DimensionsReset extends JavaPlugin {
 
-    // Instances for ALL plugin features
     private DRCommand commandHandler;
     private DataManager dataManager;
     private RegionManager regionManager;
@@ -22,15 +21,14 @@ public final class DimensionsReset extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
 
-        // Initialize all managers
+        // Initialize all our manager and handler classes
         this.dataManager = new DataManager(this);
         this.regionManager = new RegionManager(this);
         this.resetHandler = new ResetHandler(this);
-        this.wandManager = new WandManager(this);
-        // The command handler now gets all the managers it needs to operate
+        this.wandManager = new WandManager(this); // This now correctly passes the main plugin instance
         this.commandHandler = new DRCommand(this, dataManager, regionManager, resetHandler, wandManager);
 
-        // Register commands (this remains the same)
+        // Register commands
         try {
             final Field bukkitCommandMap = getServer().getClass().getDeclaredField("commandMap");
             bukkitCommandMap.setAccessible(true);
@@ -50,12 +48,12 @@ public final class DimensionsReset extends JavaPlugin {
             return;
         }
 
-        // Register event listeners
+        // Register event listeners for both the wand and player quit events
         getServer().getPluginManager().registerEvents(this.wandManager, this);
         getServer().getPluginManager().registerEvents(new PlayerListener(this.commandHandler), this);
 
-        // Start the automated scheduler task
-        new SchedulerTask(this, dataManager, commandHandler).runTaskTimer(this, 0L, 1200L);
+        // Start the automated scheduler task to run every minute (asynchronously)
+        new SchedulerTask(this, dataManager, commandHandler).runTaskTimerAsynchronously(this, 0L, 1200L);
 
         getLogger().info("DimensionsReset has been enabled with ALL features!");
     }
@@ -64,10 +62,11 @@ public final class DimensionsReset extends JavaPlugin {
     public void onDisable() {
         if (commandHandler != null) {
             commandHandler.cancelAllDimensionResets();
+            getLogger().info("Cancelled all scheduled dimension resets.");
         }
         getLogger().info("DimensionsReset has been disabled.");
     }
-    
+
     public DRCommand getCommandHandler() {
         return commandHandler;
     }

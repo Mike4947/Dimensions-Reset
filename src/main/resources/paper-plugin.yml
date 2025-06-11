@@ -1,5 +1,6 @@
+# This version uses spaces ONLY. No tabs.
 name: DimensionsReset
-version: 'v1.0
+version: '${project.version}'
 main: com.example.dimensionsreset.DimensionsReset
 api-version: '1.21'
 author: Mike4947
@@ -11,6 +12,7 @@ commands:
     description: Main command for DimensionsReset.
     usage: "/dr <reset|cancel|confirm|status|reload>"
     aliases: [dims, dreset]
+
 permissions:
   dimensionsreset.admin:
     description: Allows use of reset, cancel, and status commands.

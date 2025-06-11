@@ -9,10 +9,7 @@ import org.bukkit.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 // Other necessary imports from the previous version...
 import org.bukkit.*;
@@ -256,7 +253,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         if (seconds > 0 || formattedTime.length() == 0) formattedTime.append(seconds).append("s");
         return formattedTime.toString().trim();
     }
-    
+
     // --- NEW METHOD FOR TAB COMPLETION ---
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
@@ -290,7 +287,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
                 StringUtil.copyPartialMatches(args[2], Arrays.asList("now", "1h", "30m", "10s"), completions);
             }
         }
-        
+
         // Sort the suggestions alphabetically and return them.
         Collections.sort(completions);
         return completions;

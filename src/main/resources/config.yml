@@ -1,0 +1,19 @@
+# -------------------------------------------------- #
+#             DimensionsReset Config                 #
+# -------------------------------------------------- #
+
+# You can use standard Minecraft color codes with the '&' symbol.
+# Use %time% as a placeholder for the remaining time in the scheduled message.
+# Use %dimension% as a placeholder for the dimension name.
+messages:
+  reset-now: "&c&lThe %dimension% dimension is being reset NOW!"
+  reset-scheduled: "&a&lThe %dimension% dimension will be reset in %time%."
+  reset-cancelled: "&eThe scheduled reset for the %dimension% has been cancelled."
+  error-invalid-time: "&cInvalid time format. Use a format like '1h30m10s'."
+  error-no-permission: "&cYou do not have permission to use this command."
+  error-invalid-dimension: "&c'%dimension%' is not a valid or resettable dimension. You can only reset 'the_end'."
+  usage-help:
+    - "&6--- DimensionsReset Help ---"
+    - "&e/dr reset the_end now &7- Resets The End immediately."
+    - "&e/dr reset the_end <time> &7- Resets The End after a delay (e.g., 1h30m)."
+    - "&e/dr cancel the_end &7- Cancels a scheduled reset for The End."

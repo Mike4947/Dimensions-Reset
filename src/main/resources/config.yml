@@ -18,11 +18,6 @@ reset-all-dimensions:
   - "the_end"
   - "the_nether"
 
-# After a dimension is reset, the plugin will schedule a server restart.
-restart_manager:
-  enabled: true
-  delay: 30
-  broadcast_message: "&c&lThe dimension has been reset! The server will restart in %time% seconds to load the new world."
 
 # --- Message Configuration ---
 

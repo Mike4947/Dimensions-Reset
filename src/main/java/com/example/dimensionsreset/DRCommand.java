@@ -12,8 +12,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
-import java.util.List;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -21,9 +22,14 @@ import java.util.regex.Pattern;
 public class DRCommand implements CommandExecutor {
 
     private final DimensionsReset plugin;
-    private BukkitTask resetTask = null;
 
-    // A pattern to parse time strings like "1h30m15s"
+    // --- Fields for new features ---
+    private CommandSender senderAwaitingConfirmation = null;
+    private BukkitTask confirmationTask = null;
+    private BukkitTask mainResetTask = null;
+    private final List<BukkitTask> countdownTasks = new ArrayList<>();
+    private Instant resetTime = null;
+
     private static final Pattern TIME_PATTERN = Pattern.compile("(\\d+)([hms])");
 
     public DRCommand(DimensionsReset plugin) {
@@ -32,52 +38,81 @@ public class DRCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        // Permission Check
-        if (!sender.hasPermission("dimensionsreset.admin")) {
-            sender.sendMessage(getMessage("messages.error-no-permission"));
+        if (args.length == 0) {
+            // Show usage or version info if no arguments are provided
+            sender.sendMessage(ChatColor.GOLD + "DimensionsReset v2.0 by Mike4947");
+            sender.sendMessage(ChatColor.GRAY + "Use /dr <reset|cancel|confirm|status|reload>");
             return true;
         }
 
-        if (args.length < 2) {
-            sendUsage(sender);
+        String subCommand = args[0].toLowerCase();
+
+        // Handle commands that don't need admin permissions first
+        if (subCommand.equals("confirm")) {
+            handleConfirm(sender);
             return true;
         }
 
-        String subCommand = args[0];
-        String dimensionName = args[1];
-
-        // We only support 'the_end' for now
-        if (!dimensionName.equalsIgnoreCase("the_end")) {
-            sender.sendMessage(getMessage("messages.error-invalid-dimension").replace("%dimension%", dimensionName));
-            return true;
+        // Handle permission-based commands
+        switch (subCommand) {
+            case "reset":
+                if (!sender.hasPermission("dimensionsreset.admin")) {
+                    sender.sendMessage(getMessage("messages.error-no-permission"));
+                    return true;
+                }
+                handleReset(sender, args);
+                break;
+            case "cancel":
+                if (!sender.hasPermission("dimensionsreset.admin")) {
+                    sender.sendMessage(getMessage("messages.error-no-permission"));
+                    return true;
+                }
+                handleCancel(sender);
+                break;
+            case "status":
+                if (!sender.hasPermission("dimensionsreset.admin")) {
+                    sender.sendMessage(getMessage("messages.error-no-permission"));
+                    return true;
+                }
+                handleStatus(sender);
+                break;
+            case "reload":
+                if (!sender.hasPermission("dimensionsreset.reload")) {
+                    sender.sendMessage(getMessage("messages.error-no-permission"));
+                    return true;
+                }
+                handleReload(sender);
+                break;
+            default:
+                sender.sendMessage(ChatColor.RED + "Unknown command. Use /dr <reset|cancel|confirm|status|reload>");
+                break;
         }
-
-        if (subCommand.equalsIgnoreCase("reset")) {
-            handleReset(sender, args);
-        } else if (subCommand.equalsIgnoreCase("cancel")) {
-            handleCancel(sender);
-        } else {
-            sendUsage(sender);
-        }
-
         return true;
     }
 
     private void handleReset(CommandSender sender, String[] args) {
-        if (args.length < 3) {
-            sendUsage(sender);
+        if (args.length < 3 || !args[1].equalsIgnoreCase("the_end")) {
+            sender.sendMessage(ChatColor.RED + "Usage: /dr reset the_end <time|now>");
             return;
         }
-
-        if (resetTask != null) {
-            sender.sendMessage(ChatColor.RED + "A reset is already scheduled! Use '/dr cancel the_end' first.");
+        if (mainResetTask != null) {
+            sender.sendMessage(ChatColor.RED + "A reset is already scheduled! Use '/dr cancel' first.");
             return;
         }
 
         String timeArg = args[2];
 
         if (timeArg.equalsIgnoreCase("now")) {
-            resetEndDimension();
+            // Start the confirmation process
+            senderAwaitingConfirmation = sender;
+            sender.sendMessage(getMessage("confirmation.required_message"));
+            // Schedule the confirmation to expire
+            confirmationTask = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (senderAwaitingConfirmation != null) {
+                    sender.sendMessage(getMessage("confirmation.expired_message"));
+                    senderAwaitingConfirmation = null;
+                }
+            }, 300L); // 15 seconds (15 * 20 ticks)
         } else {
             try {
                 long timeInSeconds = parseTime(timeArg);
@@ -88,138 +123,174 @@ public class DRCommand implements CommandExecutor {
         }
     }
 
-    private void handleCancel(CommandSender sender) {
-        if (cancelScheduledReset()) {
-            Bukkit.broadcastMessage(getMessage("messages.reset-cancelled").replace("%dimension%", "End"));
-        } else {
-            sender.sendMessage(ChatColor.RED + "There is no reset scheduled to cancel.");
+    private void handleConfirm(CommandSender sender) {
+        if (senderAwaitingConfirmation == null || senderAwaitingConfirmation != sender) {
+            sender.sendMessage(getMessage("confirmation.not_required_message"));
+            return;
         }
+        // Confirmation successful
+        sender.sendMessage(getMessage("confirmation.success_message"));
+        senderAwaitingConfirmation = null;
+        if (confirmationTask != null) confirmationTask.cancel();
+
+        resetTheEnd();
     }
 
-    private void scheduleReset(long timeInSeconds) {
-        // Convert seconds to server ticks (20 ticks = 1 second)
-        long timeInTicks = timeInSeconds * 20L;
-
-        String scheduledMessage = getMessage("messages.reset-scheduled")
-                .replace("%dimension%", "End")
-                .replace("%time%", formatTime(timeInSeconds));
-
-        Bukkit.broadcastMessage(scheduledMessage);
-
-        resetTask = plugin.getServer().getScheduler().runTaskLater(plugin, this::resetEndDimension, timeInTicks);
-    }
-
-    private void resetEndDimension() {
-        World endWorld = Bukkit.getWorld("the_end");
-        if (endWorld == null) {
-            plugin.getLogger().warning("The End dimension is not loaded or does not exist. Cannot reset.");
+    private void handleCancel(CommandSender sender) {
+        if (mainResetTask == null) {
+            sender.sendMessage(ChatColor.RED + "There is no reset scheduled to cancel.");
             return;
         }
 
-        // Broadcast reset message
-        Bukkit.broadcastMessage(getMessage("messages.reset-now").replace("%dimension%", "End"));
+        cancelAllTasks();
+        Bukkit.broadcastMessage(getMessage("messages.reset-cancelled"));
+        sender.sendMessage(ChatColor.GREEN + "Scheduled reset has been successfully cancelled.");
+    }
 
-        // Get the main overworld to teleport players to
-        World overworld = Bukkit.getWorlds().get(0);
-        Location spawnLocation = overworld.getSpawnLocation();
+    private void handleStatus(CommandSender sender) {
+        if (mainResetTask == null || resetTime == null) {
+            sender.sendMessage(getMessage("messages.status-not-scheduled"));
+            return;
+        }
 
-        // Safely teleport all players out of The End
+        long remainingSeconds = Duration.between(Instant.now(), resetTime).getSeconds();
+        if (remainingSeconds < 0) remainingSeconds = 0;
+
+        sender.sendMessage(getMessage("messages.status-scheduled").replace("%time%", formatTime(remainingSeconds)));
+    }
+
+    private void handleReload(CommandSender sender) {
+        plugin.reloadConfig();
+        sender.sendMessage(getMessage("messages.config-reloaded"));
+    }
+
+    private void scheduleReset(long timeInSeconds) {
+        long timeInTicks = timeInSeconds * 20L;
+        resetTime = Instant.now().plusSeconds(timeInSeconds);
+
+        // Announce the scheduled reset
+        String scheduledMessage = getMessage("messages.reset-scheduled").replace("%time%", formatTime(timeInSeconds));
+        Bukkit.broadcastMessage(scheduledMessage);
+        playSound(plugin.getConfig().getString("sounds.reset_scheduled", "ENTITY_PLAYER_LEVELUP"));
+
+        // Schedule the main reset task
+        mainResetTask = plugin.getServer().getScheduler().runTaskLater(plugin, this::resetTheEnd, timeInTicks);
+
+        // Schedule countdown broadcasts
+        List<Integer> countdownTimes = plugin.getConfig().getIntegerList("countdown_broadcast_times");
+        for (int countdownSeconds : countdownTimes) {
+            if (timeInSeconds >= countdownSeconds) {
+                long delayTicks = (timeInSeconds - countdownSeconds) * 20L;
+                BukkitTask countdownTask = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                    String countdownMessage = getMessage("messages.reset-scheduled").replace("%time%", formatTime(countdownSeconds));
+                    Bukkit.broadcastMessage(countdownMessage);
+                    playSound(plugin.getConfig().getString("sounds.countdown_tick", "BLOCK_NOTE_BLOCK_HAT"));
+                }, delayTicks);
+                countdownTasks.add(countdownTask);
+            }
+        }
+    }
+
+    private void resetTheEnd() {
+        Bukkit.broadcastMessage(getMessage("messages.reset-now"));
+        playSound(plugin.getConfig().getString("sounds.reset_success", "ENTITY_WITHER_DEATH"));
+
+        World endWorld = Bukkit.getWorld("the_end");
+        if (endWorld == null) {
+            plugin.getLogger().warning("The End dimension is not loaded. Cannot reset.");
+            cleanupTasks();
+            return;
+        }
+
+        Location spawnLocation = Bukkit.getWorlds().get(0).getSpawnLocation();
         for (Player player : endWorld.getPlayers()) {
             player.teleport(spawnLocation);
             player.sendMessage(ChatColor.GREEN + "The End is resetting! You have been teleported to safety.");
         }
 
-        // Unload the world. Bukkit handles moving remaining entities.
         if (!Bukkit.unloadWorld(endWorld, false)) {
-            plugin.getLogger().severe("Failed to unload The End dimension! Is another plugin keeping it loaded?");
+            plugin.getLogger().severe("Failed to unload The End!");
+            cleanupTasks();
             return;
         }
 
-        // Delete the world folder
         try {
-            Path worldPath = endWorld.getWorldFolder().toPath();
-            Files.walk(worldPath)
-                    .sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
+            Files.walk(endWorld.getWorldFolder().toPath()).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
         } catch (IOException e) {
-            plugin.getLogger().severe("An error occurred while deleting the End dimension files.");
+            plugin.getLogger().severe("An error occurred while deleting The End files.");
             e.printStackTrace();
+            cleanupTasks();
             return;
         }
 
-        // Recreate the world with the same seed and environment
+        // Recreate the world after a short delay
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             plugin.getLogger().info("Recreating The End dimension...");
-            WorldCreator creator = new WorldCreator("the_end").environment(World.Environment.THE_END);
-            Bukkit.createWorld(creator);
+            Bukkit.createWorld(new WorldCreator("the_end").environment(World.Environment.THE_END));
             plugin.getLogger().info("The End dimension has been successfully reset.");
-            resetTask = null; // Mark task as complete
-        }, 20L); // Wait 1 second before recreating to ensure files are released
+        }, 20L); // 1 second delay
+
+        cleanupTasks();
     }
 
-    public boolean cancelScheduledReset() {
-        if (resetTask != null) {
-            if (!resetTask.isCancelled()) {
-                resetTask.cancel();
-            }
-            resetTask = null;
-            return true;
+    private void cancelAllTasks() {
+        if (mainResetTask != null) mainResetTask.cancel();
+        for (BukkitTask task : countdownTasks) task.cancel();
+        cleanupTasks();
+    }
+
+    private void cleanupTasks() {
+        mainResetTask = null;
+        resetTime = null;
+        countdownTasks.clear();
+    }
+
+    // --- UTILITY METHODS ---
+
+    // NEW MODERN METHOD. wtf even is this
+    private void playSound(String soundKey) {
+        if (soundKey == null || soundKey.isEmpty()) {
+            return; // Don't try to play an empty sound
         }
-        return false;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            // This is the new, non-deprecated way. It plays the sound directly from its key.
+            player.playSound(player.getLocation(), soundKey, 1.0f, 1.0f);
+        }
     }
 
-    private long parseTime(String timeString) throws IllegalArgumentException {
+    private String getMessage(String path) {
+        String message = plugin.getConfig().getString(path, "&cMessage not found in config.yml: " + path);
+        return ChatColor.translateAlternateColorCodes('&', message);
+    }
+
+    private long parseTime(String timeString) {
         long totalSeconds = 0;
         Matcher matcher = TIME_PATTERN.matcher(timeString.toLowerCase());
         boolean matchFound = false;
-
         while (matcher.find()) {
             matchFound = true;
             int amount = Integer.parseInt(matcher.group(1));
             char unit = matcher.group(2).charAt(0);
-
             switch (unit) {
-                case 'h':
-                    totalSeconds += TimeUnit.HOURS.toSeconds(amount);
-                    break;
-                case 'm':
-                    totalSeconds += TimeUnit.MINUTES.toSeconds(amount);
-                    break;
-                case 's':
-                    totalSeconds += amount;
-                    break;
+                case 'h': totalSeconds += TimeUnit.HOURS.toSeconds(amount); break;
+                case 'm': totalSeconds += TimeUnit.MINUTES.toSeconds(amount); break;
+                case 's': totalSeconds += amount; break;
             }
         }
-
-        if (!matchFound) {
-            throw new IllegalArgumentException("Invalid time format");
-        }
+        if (!matchFound) throw new IllegalArgumentException("Invalid time format");
         return totalSeconds;
     }
 
+//time manager format
     private String formatTime(long totalSeconds) {
-        long hours = TimeUnit.SECONDS.toHours(totalSeconds);
-        long minutes = TimeUnit.SECONDS.toMinutes(totalSeconds) % 60;
+        if (totalSeconds < 0) totalSeconds = 0;
+        long hours = totalSeconds / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
         long seconds = totalSeconds % 60;
-
         StringBuilder formattedTime = new StringBuilder();
         if (hours > 0) formattedTime.append(hours).append("h ");
         if (minutes > 0) formattedTime.append(minutes).append("m ");
         if (seconds > 0 || formattedTime.length() == 0) formattedTime.append(seconds).append("s");
-
         return formattedTime.toString().trim();
-    }
-
-    private String getMessage(String path) {
-        String message = plugin.getConfig().getString(path, "Message not found: " + path);
-        return ChatColor.translateAlternateColorCodes('&', message);
-    }
-
-    private void sendUsage(CommandSender sender) {
-        List<String> helpMessages = plugin.getConfig().getStringList("messages.usage-help");
-        for (String line : helpMessages) {
-            sender.sendMessage(ChatColor.translateAlternateColorCodes('&', line));
-        }
     }
 }

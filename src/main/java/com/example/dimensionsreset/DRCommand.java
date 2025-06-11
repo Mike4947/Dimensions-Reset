@@ -24,9 +24,17 @@ import java.util.regex.Pattern;
 
 public class DRCommand implements CommandExecutor, TabCompleter {
 
+    // A simple "record" to hold the player's saved state for preview mode.
     private record PlayerState(Location location, GameMode gameMode) {}
+
+    // A Map to track which players are currently in preview mode.
     private final Map<UUID, PlayerState> previewingPlayers = new HashMap<>();
+
+    // --- NEW AND MODIFIED FIELDS FOR THE SCHEDULER ---
     private final DimensionsReset plugin;
+    private final DataManager dataManager; // The new DataManager to handle saving/loading reset times.
+    private String activeScheduleId = null; // Tracks which automated schedule is currently running, if any.
+
     private CommandSender senderAwaitingConfirmation = null;
     private BukkitTask confirmationTask = null;
     private BukkitTask mainResetTask = null;
@@ -34,90 +42,17 @@ public class DRCommand implements CommandExecutor, TabCompleter {
     private Instant resetTime = null;
     private static final Pattern TIME_PATTERN = Pattern.compile("(\\d+)([hms])");
 
-    public DRCommand(DimensionsReset plugin) { this.plugin = plugin; }
-    
-    // --- THIS IS THE ONLY METHOD WITH A CHANGE ---
-    private void resetTheEnd() {
-        // --- v1.2.4 FIX: A much more robust way to find The End world ---
-        World endWorld = null;
-        for (World world : Bukkit.getServer().getWorlds()) {
-            if (world.getEnvironment() == World.Environment.THE_END) {
-                endWorld = world;
-                break; // We found it, no need to keep looking
-            }
-        }
-
-        if (endWorld == null) {
-            plugin.getLogger().severe("RESET FAILED: Could not find any loaded world with the End environment type.");
-            cleanupTasks();
-            return;
-        }
-        // --- End of fix ---
-
-        Bukkit.broadcastMessage(getMessage("messages.reset-now"));
-        playSound(plugin.getConfig().getString("sounds.reset_success", "entity.wither.death"));
-
-        plugin.getLogger().info("[Reset Stage 1/3] Teleporting players and unloading The End...");
-        Location spawnLocation = Bukkit.getWorlds().get(0).getSpawnLocation();
-        for (Player player : new ArrayList<>(endWorld.getPlayers())) {
-            player.teleport(spawnLocation);
-            player.sendMessage(ChatColor.GREEN + "The End is resetting! You have been teleported to safety.");
-        }
-
-        File worldFolder = endWorld.getWorldFolder();
-        if (!Bukkit.unloadWorld(endWorld, false)) {
-            plugin.getLogger().severe("RESET FAILED: Failed to unload The End! Another plugin may be preventing it.");
-            cleanupTasks();
-            return;
-        }
-
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            plugin.getLogger().info("[Reset Stage 2/3] Deleting world files for The End...");
-            try {
-                deleteDirectory(worldFolder);
-            } catch (IOException e) {
-                plugin.getLogger().severe("RESET FAILED: Could not delete The End world files. Check file permissions.");
-                e.printStackTrace();
-                cleanupTasks();
-                return;
-            }
-
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                plugin.getLogger().info("[Reset Stage 3/3] Recreating The End dimension...");
-                Bukkit.createWorld(new WorldCreator("the_end").environment(World.Environment.THE_END));
-                plugin.getLogger().info("SUCCESS: The End dimension has been reset.");
-                cleanupTasks();
-            }, 20L);
-
-        }, 20L);
-    }
-    
-    private void deleteDirectory(File directory) throws IOException {
-        if (directory.exists()) {
-            File[] files = directory.listFiles();
-            if (files != null) {
-                for (File file : files) {
-                    if (file.isDirectory()) {
-                        deleteDirectory(file);
-                    } else {
-                        if (!file.delete()) {
-                            throw new IOException("Failed to delete file: " + file);
-                        }
-                    }
-                }
-            }
-            if (!directory.delete()) {
-                throw new IOException("Failed to delete directory: " + directory);
-            }
-        }
+    // --- UPDATED CONSTRUCTOR ---
+    public DRCommand(DimensionsReset plugin, DataManager dataManager) {
+        this.plugin = plugin;
+        this.dataManager = dataManager;
     }
 
-    // --- (All other methods are identical to the previous version) ---
-    // (onCommand, handlePreview, etc.)
+    // onCommand method is unchanged
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(ChatColor.GOLD + "DimensionsReset v1.2.4 by Mike4947");
+            sender.sendMessage(ChatColor.GOLD + "DimensionsReset v1.3.0 by Mike4947");
             sender.sendMessage(ChatColor.GRAY + "Use /dr <reset|cancel|confirm|status|reload|preview>");
             return true;
         }
@@ -152,6 +87,129 @@ public class DRCommand implements CommandExecutor, TabCompleter {
                 break;
         }
         return true;
+    }
+
+    // --- NEW PUBLIC METHODS FOR SCHEDULER INTERACTION ---
+
+    /**
+     * Allows the external SchedulerTask to trigger a reset.
+     * @param dimension The dimension to reset (currently only "the_end").
+     * @param timeInSeconds The announcement time (e.g., 3600 for 1 hour).
+     * @param scheduleId The unique ID of the schedule triggering this reset.
+     */
+    public void scheduleReset(String dimension, long timeInSeconds, String scheduleId) {
+        if (!dimension.equalsIgnoreCase("the_end")) {
+            plugin.getLogger().warning("Automated reset tried to run for an unsupported dimension: " + dimension);
+            return;
+        }
+        // Track the ID of the automated schedule that is running.
+        this.activeScheduleId = scheduleId;
+        // Call the existing method that handles the reset logic.
+        scheduleReset(timeInSeconds);
+    }
+
+    /**
+     * Allows the external SchedulerTask to check if a reset is already in progress.
+     * @return true if a reset is scheduled, false otherwise.
+     */
+    public boolean isResetScheduled() {
+        return mainResetTask != null;
+    }
+
+
+    // --- MODIFIED METHOD ---
+    private void resetTheEnd() {
+        // Capture the schedule ID in a local variable. This is important because cleanupTasks()
+        // will nullify the class-level field before the final save operation runs.
+        final String scheduleIdToLog = this.activeScheduleId;
+
+        World endWorld = null;
+        for (World world : Bukkit.getServer().getWorlds()) {
+            if (world.getEnvironment() == World.Environment.THE_END) {
+                endWorld = world;
+                break;
+            }
+        }
+        if (endWorld == null) {
+            plugin.getLogger().severe("RESET FAILED: Could not find any loaded world with the End environment type.");
+            cleanupTasks();
+            return;
+        }
+
+        Bukkit.broadcastMessage(getMessage("messages.reset-now"));
+        playSound(plugin.getConfig().getString("sounds.reset_success", "entity.wither.death"));
+
+        plugin.getLogger().info("[Reset Stage 1/3] Teleporting players and unloading The End...");
+        Location spawnLocation = Bukkit.getWorlds().get(0).getSpawnLocation();
+        for (Player player : new ArrayList<>(endWorld.getPlayers())) {
+            player.teleport(spawnLocation);
+            player.sendMessage(ChatColor.GREEN + "The End is resetting! You have been teleported to safety.");
+        }
+
+        File worldFolder = endWorld.getWorldFolder();
+        if (!Bukkit.unloadWorld(endWorld, false)) {
+            plugin.getLogger().severe("RESET FAILED: Failed to unload The End! Another plugin may be preventing it.");
+            cleanupTasks();
+            return;
+        }
+
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            plugin.getLogger().info("[Reset Stage 2/3] Deleting world files for The End...");
+            try {
+                deleteDirectory(worldFolder);
+            } catch (IOException e) {
+                plugin.getLogger().severe("RESET FAILED: Could not delete The End world files. Check file permissions.");
+                e.printStackTrace();
+                cleanupTasks();
+                return;
+            }
+
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                plugin.getLogger().info("[Reset Stage 3/3] Recreating The End dimension...");
+                Bukkit.createWorld(new WorldCreator("the_end").environment(World.Environment.THE_END));
+
+                // --- NEW: Update the data file if this was an automated reset ---
+                if (scheduleIdToLog != null) {
+                    dataManager.setLastResetTime(scheduleIdToLog, Instant.now().getEpochSecond());
+                    plugin.getLogger().info("Updated last reset time for schedule: " + scheduleIdToLog);
+                }
+
+                plugin.getLogger().info("SUCCESS: The End dimension has been reset.");
+                cleanupTasks();
+            }, 20L);
+
+        }, 20L);
+    }
+    
+    // --- MODIFIED METHOD ---
+    private void cleanupTasks() {
+        mainResetTask = null;
+        resetTime = null;
+        countdownTasks.clear();
+        this.activeScheduleId = null; // Reset the active schedule ID
+    }
+
+
+    // --- All other methods remain unchanged from the previous version ---
+
+    private void deleteDirectory(File directory) throws IOException {
+        if (directory.exists()) {
+            File[] files = directory.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isDirectory()) {
+                        deleteDirectory(file);
+                    } else {
+                        if (!file.delete()) {
+                            throw new IOException("Failed to delete file: " + file);
+                        }
+                    }
+                }
+            }
+            if (!directory.delete()) {
+                throw new IOException("Failed to delete directory: " + directory);
+            }
+        }
     }
     private void handlePreview(CommandSender sender, String[] args) {
         if (args.length < 2) {
@@ -318,11 +376,6 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         for (BukkitTask task : countdownTasks) task.cancel();
         cleanupTasks();
     }
-    private void cleanupTasks() {
-        mainResetTask = null;
-        resetTime = null;
-        countdownTasks.clear();
-    }
     private void playSound(String soundKey) {
         if (soundKey == null || soundKey.isEmpty()) { return; }
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -336,7 +389,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
     private void noPerm(CommandSender sender) {
         sender.sendMessage(getMessage("messages.error-no-permission"));
     }
-    private long parseTime(String timeString) {
+    public long parseTime(String timeString) {
         long totalSeconds = 0;
         Matcher matcher = TIME_PATTERN.matcher(timeString.toLowerCase());
         boolean matchFound = false;

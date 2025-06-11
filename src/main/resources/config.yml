@@ -1,5 +1,5 @@
 # -------------------------------------------------- #
-#        DimensionsReset Config - Reorganized        #
+#        DimensionsReset Config - v1.3.1+            #
 # -------------------------------------------------- #
 
 # Controls the fully automated, recurring dimension resets.
@@ -18,6 +18,12 @@ reset-all-dimensions:
   - "the_end"
   - "the_nether"
 
+# After a dimension is reset, the plugin will schedule a server restart.
+restart_manager:
+  enabled: true
+  delay: 30
+  broadcast_message: "&c&lThe dimension has been reset! The server will restart in %time% seconds to load the new world."
+
 # --- Message Configuration ---
 
 dimension_reset_messages:
@@ -31,17 +37,6 @@ dimension_reset_messages:
   reset_cancelled: "&eThe scheduled reset for %dimension% has been cancelled."
   status_scheduled: "&aA reset for %dimension% is scheduled in &e%time%&a."
   status_not_scheduled: "&eThere is no reset currently scheduled for %dimension%."
-
-  # After a dimension is reset, the plugin will schedule a server restart to ensure
-  # the new world is loaded correctly and all portals work.
-  restart_manager:
-    # Enable the automatic restart after a reset.
-    # ONLY TURN TO 'FALSE' IF YOU KNOW WHAT YOU ARE DOING!
-    enabled: true
-    # Delay in seconds before the server restarts.
-    delay: 30
-    # The message broadcast to all players before the restart.
-    broadcast_message: "&c&lThe dimension has been reset! The server will restart in %time% seconds to load the new world."
 
 wilderness_reset:
   wand_give: "&d✨ &aYou have received the Protection Wand! &7(Left-click for Pos1, Right-click for Pos2)"
@@ -79,7 +74,17 @@ generic_messages:
 # --- Functional Configuration ---
 
 countdown_broadcast_times:
-  - 3600, 1800, 600, 60, 30, 10, 5, 4, 3, 2, 1
+  - 3600
+  - 1800
+  - 600
+  - 60
+  - 30
+  - 10
+  - 5
+  - 4
+  - 3
+  - 2
+  - 1
 
 sounds:
   reset_scheduled: "entity.player.levelup"

@@ -45,7 +45,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(ChatColor.GOLD + "DimensionsReset v1.2.1 by Mike4947");
+            sender.sendMessage(ChatColor.GOLD + "DimensionsReset v1.2.2 by Mike4947");
             sender.sendMessage(ChatColor.GRAY + "Use /dr <reset|cancel|confirm|status|reload|preview>");
             return true;
         }
@@ -59,24 +59,23 @@ public class DRCommand implements CommandExecutor, TabCompleter {
 
         switch (subCommand) {
             case "reset":
-                if (!sender.hasPermission("dimensionsreset.admin")) { noPerm(); return true; }
+                if (!sender.hasPermission("dimensionsreset.admin")) { noPerm(sender); return true; }
                 handleReset(sender, args);
                 break;
             case "cancel":
-                if (!sender.hasPermission("dimensionsreset.admin")) { noPerm(); return true; }
+                if (!sender.hasPermission("dimensionsreset.admin")) { noPerm(sender); return true; }
                 handleCancel(sender);
                 break;
             case "status":
-                if (!sender.hasPermission("dimensionsreset.admin")) { noPerm(); return true; }
+                if (!sender.hasPermission("dimensionsreset.admin")) { noPerm(sender); return true; }
                 handleStatus(sender);
                 break;
             case "reload":
-                if (!sender.hasPermission("dimensionsreset.reload")) { noPerm(); return true; }
+                if (!sender.hasPermission("dimensionsreset.reload")) { noPerm(sender); return true; }
                 handleReload(sender);
                 break;
-            // New case for our preview command
             case "preview":
-                if (!sender.hasPermission("dimensionsreset.preview")) { noPerm(); return true; }
+                if (!sender.hasPermission("dimensionsreset.preview")) { noPerm(sender); return true; }
                 handlePreview(sender, args);
                 break;
             default:
@@ -85,8 +84,6 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         }
         return true;
     }
-    
-    // --- NEW METHODS FOR PREVIEW FEATURE ---
 
     private void handlePreview(CommandSender sender, String[] args) {
         if (args.length < 2) {
@@ -95,7 +92,6 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         }
         String previewAction = args[1].toLowerCase();
 
-        // The 'seed' subcommand can be run by anyone, including console
         if (previewAction.equals("seed")) {
             World overworld = Bukkit.getWorlds().get(0);
             long seed = overworld.getSeed();
@@ -103,7 +99,6 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        // The 'before' and 'exit' subcommands must be run by a player
         if (!(sender instanceof Player player)) {
             sender.sendMessage(getMessage("preview.error_players_only"));
             return;
@@ -111,7 +106,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
 
         switch (previewAction) {
             case "before" -> enterPreviewMode(player);
-            case "exit" -> exitPreviewMode(player, true); // true = send exit message
+            case "exit" -> exitPreviewMode(player, true);
             default -> sender.sendMessage(ChatColor.RED + "Unknown preview action. Use <before|exit|seed>");
         }
     }
@@ -121,11 +116,20 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(getMessage("preview.error_already_in_preview"));
             return;
         }
+        
         World endWorld = Bukkit.getWorld("the_end");
+
+        // --- v1.2.2 FIX: If the world is not loaded, attempt to load it from disk. ---
         if (endWorld == null) {
-            player.sendMessage(getMessage("preview.error_end_not_found"));
-            return;
+            plugin.getLogger().info("The End is not loaded, attempting to load for preview...");
+            endWorld = Bukkit.createWorld(new WorldCreator("the_end").environment(World.Environment.THE_END));
+            
+            if (endWorld == null) {
+                player.sendMessage(getMessage("preview.error_end_not_found"));
+                return;
+            }
         }
+        // --- End of fix ---
 
         PlayerState originalState = new PlayerState(player.getLocation(), player.getGameMode());
         previewingPlayers.put(player.getUniqueId(), originalState);
@@ -150,11 +154,9 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         return previewingPlayers.containsKey(player.getUniqueId());
     }
 
-    // --- TAB COMPLETION ---
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
         final List<String> completions = new ArrayList<>();
-
         if (args.length == 1) {
             final List<String> subCommands = new ArrayList<>();
             if (sender.hasPermission("dimensionsreset.admin")) {
@@ -167,16 +169,13 @@ public class DRCommand implements CommandExecutor, TabCompleter {
                 subCommands.add("preview");
             }
             StringUtil.copyPartialMatches(args[0], subCommands, completions);
-        }
-        else if (args.length == 2) {
+        } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("reset")) {
                 StringUtil.copyPartialMatches(args[1], Collections.singletonList("the_end"), completions);
-            }
-            else if (args[0].equalsIgnoreCase("preview") && sender.hasPermission("dimensionsreset.preview")) {
+            } else if (args[0].equalsIgnoreCase("preview") && sender.hasPermission("dimensionsreset.preview")) {
                 StringUtil.copyPartialMatches(args[1], Arrays.asList("before", "exit", "seed"), completions);
             }
-        }
-        else if (args.length == 3) {
+        } else if (args.length == 3) {
             if (args[0].equalsIgnoreCase("reset") && args[1].equalsIgnoreCase("the_end")) {
                 StringUtil.copyPartialMatches(args[2], Arrays.asList("now", "1h", "30m", "10s"), completions);
             }
@@ -184,8 +183,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         Collections.sort(completions);
         return completions;
     }
-    
-    // --- All other methods from v1.2.0 remain below ---
+
     private void handleReset(CommandSender sender, String[] args) {
         if (args.length < 3 || !args[1].equalsIgnoreCase("the_end")) {
             sender.sendMessage(ChatColor.RED + "Usage: /dr reset the_end <time|now>");
@@ -214,6 +212,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             }
         }
     }
+
     private void handleConfirm(CommandSender sender) {
         if (senderAwaitingConfirmation == null || senderAwaitingConfirmation != sender) {
             sender.sendMessage(getMessage("confirmation.not_required_message"));
@@ -224,6 +223,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         if (confirmationTask != null) confirmationTask.cancel();
         resetTheEnd();
     }
+
     private void handleCancel(CommandSender sender) {
         if (mainResetTask == null) {
             sender.sendMessage(ChatColor.RED + "There is no reset scheduled to cancel.");
@@ -233,6 +233,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         Bukkit.broadcastMessage(getMessage("messages.reset-cancelled"));
         sender.sendMessage(ChatColor.GREEN + "Scheduled reset has been successfully cancelled.");
     }
+
     private void handleStatus(CommandSender sender) {
         if (mainResetTask == null || resetTime == null) {
             sender.sendMessage(getMessage("messages.status-not-scheduled"));
@@ -242,10 +243,12 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         if (remainingSeconds < 0) remainingSeconds = 0;
         sender.sendMessage(getMessage("messages.status-scheduled").replace("%time%", formatTime(remainingSeconds)));
     }
+
     private void handleReload(CommandSender sender) {
         plugin.reloadConfig();
         sender.sendMessage(getMessage("messages.config-reloaded"));
     }
+
     private void scheduleReset(long timeInSeconds) {
         long timeInTicks = timeInSeconds * 20L;
         resetTime = Instant.now().plusSeconds(timeInSeconds);
@@ -266,6 +269,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             }
         }
     }
+
     private void resetTheEnd() {
         Bukkit.broadcastMessage(getMessage("messages.reset-now"));
         playSound(plugin.getConfig().getString("sounds.reset_success", "entity.wither.death"));
@@ -300,27 +304,35 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         }, 20L);
         cleanupTasks();
     }
+
     public void cancelAllTasks() {
         if (mainResetTask != null) mainResetTask.cancel();
         for (BukkitTask task : countdownTasks) task.cancel();
         cleanupTasks();
     }
+
     private void cleanupTasks() {
         mainResetTask = null;
         resetTime = null;
         countdownTasks.clear();
     }
+
     private void playSound(String soundKey) {
         if (soundKey == null || soundKey.isEmpty()) { return; }
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.playSound(player.getLocation(), soundKey, 1.0f, 1.0f);
         }
     }
+
     private String getMessage(String path) {
         String message = plugin.getConfig().getString(path, "&cMessage not found: " + path);
         return ChatColor.translateAlternateColorCodes('&', message);
     }
-    private void noPerm() { /* A helper method to avoid repetition, though not strictly needed */ }
+
+    private void noPerm(CommandSender sender) {
+        sender.sendMessage(getMessage("messages.error-no-permission"));
+    }
+    
     private long parseTime(String timeString) {
         long totalSeconds = 0;
         Matcher matcher = TIME_PATTERN.matcher(timeString.toLowerCase());
@@ -338,6 +350,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         if (!matchFound) throw new IllegalArgumentException("Invalid time format");
         return totalSeconds;
     }
+
     private String formatTime(long totalSeconds) {
         if (totalSeconds < 0) totalSeconds = 0;
         long hours = totalSeconds / 3600;

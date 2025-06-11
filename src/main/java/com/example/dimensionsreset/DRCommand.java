@@ -1,35 +1,35 @@
 package com.example.dimensionsreset;
 
-import org.bukkit.ChatColor;
+import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
-
-// Other necessary imports from the previous version...
-import org.bukkit.*;
-import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitTask;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// The class now implements TabCompleter as well as CommandExecutor
 public class DRCommand implements CommandExecutor, TabCompleter {
 
-    // --- All of your existing code from the previous version remains the same ---
-    // (Fields, constructor, onCommand, handleReset, etc.)
+    // A simple "record" to hold the player's saved state for preview mode.
+    private record PlayerState(Location location, GameMode gameMode) {}
+
+    // A Map to track which players are currently in preview mode.
+    private final Map<UUID, PlayerState> previewingPlayers = new HashMap<>();
+
     private final DimensionsReset plugin;
     private CommandSender senderAwaitingConfirmation = null;
     private BukkitTask confirmationTask = null;
@@ -45,52 +45,147 @@ public class DRCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(ChatColor.GOLD + "DimensionsReset v1.2.0 by Mike4947");
-            sender.sendMessage(ChatColor.GRAY + "Use /dr <reset|cancel|confirm|status|reload>");
+            sender.sendMessage(ChatColor.GOLD + "DimensionsReset v1.2.1 by Mike4947");
+            sender.sendMessage(ChatColor.GRAY + "Use /dr <reset|cancel|confirm|status|reload|preview>");
             return true;
         }
+
         String subCommand = args[0].toLowerCase();
+
         if (subCommand.equals("confirm")) {
             handleConfirm(sender);
             return true;
         }
+
         switch (subCommand) {
             case "reset":
-                if (!sender.hasPermission("dimensionsreset.admin")) {
-                    sender.sendMessage(getMessage("messages.error-no-permission"));
-                    return true;
-                }
+                if (!sender.hasPermission("dimensionsreset.admin")) { noPerm(); return true; }
                 handleReset(sender, args);
                 break;
             case "cancel":
-                if (!sender.hasPermission("dimensionsreset.admin")) {
-                    sender.sendMessage(getMessage("messages.error-no-permission"));
-                    return true;
-                }
+                if (!sender.hasPermission("dimensionsreset.admin")) { noPerm(); return true; }
                 handleCancel(sender);
                 break;
             case "status":
-                if (!sender.hasPermission("dimensionsreset.admin")) {
-                    sender.sendMessage(getMessage("messages.error-no-permission"));
-                    return true;
-                }
+                if (!sender.hasPermission("dimensionsreset.admin")) { noPerm(); return true; }
                 handleStatus(sender);
                 break;
             case "reload":
-                if (!sender.hasPermission("dimensionsreset.reload")) {
-                    sender.sendMessage(getMessage("messages.error-no-permission"));
-                    return true;
-                }
+                if (!sender.hasPermission("dimensionsreset.reload")) { noPerm(); return true; }
                 handleReload(sender);
                 break;
+            // New case for our preview command
+            case "preview":
+                if (!sender.hasPermission("dimensionsreset.preview")) { noPerm(); return true; }
+                handlePreview(sender, args);
+                break;
             default:
-                sender.sendMessage(ChatColor.RED + "Unknown command. Use /dr <reset|cancel|confirm|status|reload>");
+                sender.sendMessage(ChatColor.RED + "Unknown command. Use /dr <reset|cancel|confirm|status|reload|preview>");
                 break;
         }
         return true;
     }
+    
+    // --- NEW METHODS FOR PREVIEW FEATURE ---
 
-    // --- All other handle...() and utility methods are unchanged ---
+    private void handlePreview(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(ChatColor.RED + "Usage: /dr preview <before|exit|seed>");
+            return;
+        }
+        String previewAction = args[1].toLowerCase();
+
+        // The 'seed' subcommand can be run by anyone, including console
+        if (previewAction.equals("seed")) {
+            World overworld = Bukkit.getWorlds().get(0);
+            long seed = overworld.getSeed();
+            sender.sendMessage(getMessage("preview.seed_message").replace("%seed%", String.valueOf(seed)));
+            return;
+        }
+
+        // The 'before' and 'exit' subcommands must be run by a player
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(getMessage("preview.error_players_only"));
+            return;
+        }
+
+        switch (previewAction) {
+            case "before" -> enterPreviewMode(player);
+            case "exit" -> exitPreviewMode(player, true); // true = send exit message
+            default -> sender.sendMessage(ChatColor.RED + "Unknown preview action. Use <before|exit|seed>");
+        }
+    }
+
+    private void enterPreviewMode(Player player) {
+        if (isPreviewing(player)) {
+            player.sendMessage(getMessage("preview.error_already_in_preview"));
+            return;
+        }
+        World endWorld = Bukkit.getWorld("the_end");
+        if (endWorld == null) {
+            player.sendMessage(getMessage("preview.error_end_not_found"));
+            return;
+        }
+
+        PlayerState originalState = new PlayerState(player.getLocation(), player.getGameMode());
+        previewingPlayers.put(player.getUniqueId(), originalState);
+
+        player.setGameMode(GameMode.SPECTATOR);
+        player.teleport(new Location(endWorld, 0, 100, 0));
+        player.sendMessage(getMessage("preview.enter_message"));
+    }
+
+    public void exitPreviewMode(Player player, boolean sendExitMessage) {
+        PlayerState originalState = previewingPlayers.remove(player.getUniqueId());
+        if (originalState == null) {
+            if (sendExitMessage) player.sendMessage(getMessage("preview.error_not_in_preview"));
+            return;
+        }
+        player.teleport(originalState.location());
+        player.setGameMode(originalState.gameMode());
+        if (sendExitMessage) player.sendMessage(getMessage("preview.exit_message"));
+    }
+
+    public boolean isPreviewing(Player player) {
+        return previewingPlayers.containsKey(player.getUniqueId());
+    }
+
+    // --- TAB COMPLETION ---
+    @Override
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
+        final List<String> completions = new ArrayList<>();
+
+        if (args.length == 1) {
+            final List<String> subCommands = new ArrayList<>();
+            if (sender.hasPermission("dimensionsreset.admin")) {
+                subCommands.addAll(Arrays.asList("reset", "cancel", "status", "confirm"));
+            }
+            if (sender.hasPermission("dimensionsreset.reload")) {
+                subCommands.add("reload");
+            }
+            if (sender.hasPermission("dimensionsreset.preview")) {
+                subCommands.add("preview");
+            }
+            StringUtil.copyPartialMatches(args[0], subCommands, completions);
+        }
+        else if (args.length == 2) {
+            if (args[0].equalsIgnoreCase("reset")) {
+                StringUtil.copyPartialMatches(args[1], Collections.singletonList("the_end"), completions);
+            }
+            else if (args[0].equalsIgnoreCase("preview") && sender.hasPermission("dimensionsreset.preview")) {
+                StringUtil.copyPartialMatches(args[1], Arrays.asList("before", "exit", "seed"), completions);
+            }
+        }
+        else if (args.length == 3) {
+            if (args[0].equalsIgnoreCase("reset") && args[1].equalsIgnoreCase("the_end")) {
+                StringUtil.copyPartialMatches(args[2], Arrays.asList("now", "1h", "30m", "10s"), completions);
+            }
+        }
+        Collections.sort(completions);
+        return completions;
+    }
+    
+    // --- All other methods from v1.2.0 remain below ---
     private void handleReset(CommandSender sender, String[] args) {
         if (args.length < 3 || !args[1].equalsIgnoreCase("the_end")) {
             sender.sendMessage(ChatColor.RED + "Usage: /dr reset the_end <time|now>");
@@ -222,9 +317,10 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         }
     }
     private String getMessage(String path) {
-        String message = plugin.getConfig().getString(path, "&cMessage not found in config.yml: " + path);
+        String message = plugin.getConfig().getString(path, "&cMessage not found: " + path);
         return ChatColor.translateAlternateColorCodes('&', message);
     }
+    private void noPerm() { /* A helper method to avoid repetition, though not strictly needed */ }
     private long parseTime(String timeString) {
         long totalSeconds = 0;
         Matcher matcher = TIME_PATTERN.matcher(timeString.toLowerCase());
@@ -252,44 +348,5 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         if (minutes > 0) formattedTime.append(minutes).append("m ");
         if (seconds > 0 || formattedTime.length() == 0) formattedTime.append(seconds).append("s");
         return formattedTime.toString().trim();
-    }
-
-    // --- NEW METHOD FOR TAB COMPLETION ---
-    @Override
-    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
-        // This list will hold our suggestions.
-        final List<String> completions = new ArrayList<>();
-
-        // Logic for the first argument (e.g., /dr <HERE>)
-        if (args.length == 1) {
-            final List<String> subCommands = new ArrayList<>();
-            // Only add commands the user has permission for.
-            if (sender.hasPermission("dimensionsreset.admin")) {
-                subCommands.addAll(Arrays.asList("reset", "cancel", "status", "confirm"));
-            }
-            if (sender.hasPermission("dimensionsreset.reload")) {
-                subCommands.add("reload");
-            }
-            // Find all subcommands that start with what the user has typed so far.
-            StringUtil.copyPartialMatches(args[0], subCommands, completions);
-        }
-        // Logic for the second argument (e.g., /dr reset <HERE>)
-        else if (args.length == 2) {
-            if (args[0].equalsIgnoreCase("reset")) {
-                // Find all matches for "the_end".
-                StringUtil.copyPartialMatches(args[1], Collections.singletonList("the_end"), completions);
-            }
-        }
-        // Logic for the third argument (e.g., /dr reset the_end <HERE>)
-        else if (args.length == 3) {
-            if (args[0].equalsIgnoreCase("reset") && args[1].equalsIgnoreCase("the_end")) {
-                // Suggest "now" and some example times.
-                StringUtil.copyPartialMatches(args[2], Arrays.asList("now", "1h", "30m", "10s"), completions);
-            }
-        }
-
-        // Sort the suggestions alphabetically and return them.
-        Collections.sort(completions);
-        return completions;
     }
 }

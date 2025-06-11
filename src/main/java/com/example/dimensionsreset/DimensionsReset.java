@@ -10,10 +10,8 @@ public final class DimensionsReset extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        // Save the default config.yml to the plugin's folder if it doesn't exist
         saveDefaultConfig();
 
-        // Initialize and register the command executor
         this.drCommand = new DRCommand(this);
         Objects.requireNonNull(getCommand("dr")).setExecutor(drCommand);
 
@@ -24,7 +22,8 @@ public final class DimensionsReset extends JavaPlugin {
     public void onDisable() {
         // Cancel any pending tasks on shutdown to prevent issues
         if (drCommand != null) {
-            drCommand.cancelScheduledReset();
+            drCommand.cancelAllTasks();
+            getLogger().info("Cancelled all scheduled dimension resets.");
         }
         getLogger().info("DimensionsReset has been disabled.");
     }

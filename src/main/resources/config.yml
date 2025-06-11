@@ -27,6 +27,21 @@ messages:
   error-no-permission: "&cYou do not have permission to use this command."
   error-invalid-time: "&cInvalid time format. Use a format like '1h30m10s'."
 
+# Add this new 'preview' section to your config.yml
+
+preview:
+  # Message sent when a player enters preview mode.
+  enter_message: "&aYou are now in preview mode. Use &e/dr preview exit &ato return."
+  # Message sent when a player leaves preview mode.
+  exit_message: "&aYou have exited preview mode and have been returned to your original location."
+  # Message sent when displaying the world seed. %seed% is the placeholder.
+  seed_message: "&aThe next End dimension will be generated using the main world's seed: &e%seed%"
+  # Error messages
+  error_not_in_preview: "&cYou are not currently in preview mode."
+  error_already_in_preview: "&cYou are already in preview mode. Use /dr preview exit to leave."
+  error_end_not_found: "&cThe End is not currently loaded in memory. Please have a player visit The End to load it, then try again."
+  error_players_only: "&cThis command can only be run by a player."
+
 # A list of times (in seconds) before the reset to broadcast a countdown message.
 # You can add or remove any times you want.
 countdown_broadcast_times:

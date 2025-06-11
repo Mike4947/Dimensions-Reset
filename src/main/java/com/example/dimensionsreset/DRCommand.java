@@ -1,6 +1,6 @@
 package com.example.dimensionsreset;
 
-// All previous imports are still needed
+// (All imports remain the same as the previous version)
 import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
 public class DRCommand implements CommandExecutor, TabCompleter {
 
     // (All fields from the previous version are the same)
@@ -39,33 +38,87 @@ public class DRCommand implements CommandExecutor, TabCompleter {
 
     public DRCommand(DimensionsReset plugin) { this.plugin = plugin; }
 
-    // --- THIS IS THE ONLY METHOD WITH A CHANGE ---
-    private void enterPreviewMode(Player player) {
-        if (isPreviewing(player)) {
-            player.sendMessage(getMessage("preview.error_already_in_preview"));
-            return;
-        }
-
-        // --- v1.2.3 FIX: Reverted to a safer check. ---
-        // We only check for the loaded world. We no longer try to create/load it ourselves.
+    // --- THIS IS THE ONLY METHOD WITH A MAJOR CHANGE ---
+    private void resetTheEnd() {
         World endWorld = Bukkit.getWorld("the_end");
         if (endWorld == null) {
-            // The new, more helpful error message from the config will be sent.
-            player.sendMessage(getMessage("preview.error_end_not_found"));
+            plugin.getLogger().severe("RESET FAILED: The End dimension is not loaded or does not exist.");
+            cleanupTasks();
             return;
         }
-        // --- End of fix ---
 
-        PlayerState originalState = new PlayerState(player.getLocation(), player.getGameMode());
-        previewingPlayers.put(player.getUniqueId(), originalState);
+        // Announce and play sound first
+        Bukkit.broadcastMessage(getMessage("messages.reset-now"));
+        playSound(plugin.getConfig().getString("sounds.reset_success", "entity.wither.death"));
 
-        player.setGameMode(GameMode.SPECTATOR);
-        player.teleport(new Location(endWorld, 0, 100, 0));
-        player.sendMessage(getMessage("preview.enter_message"));
+        // STAGE 1: Teleport all players and request the world unload.
+        plugin.getLogger().info("[Reset Stage 1/3] Teleporting players and unloading The End...");
+        Location spawnLocation = Bukkit.getWorlds().get(0).getSpawnLocation();
+        // Create a copy of the player list to avoid issues while iterating
+        for (Player player : new ArrayList<>(endWorld.getPlayers())) {
+            player.teleport(spawnLocation);
+            player.sendMessage(ChatColor.GREEN + "The End is resetting! You have been teleported to safety.");
+        }
+
+        File worldFolder = endWorld.getWorldFolder();
+        if (!Bukkit.unloadWorld(endWorld, false)) {
+            plugin.getLogger().severe("RESET FAILED: Failed to unload The End! Another plugin may be preventing it.");
+            cleanupTasks();
+            return;
+        }
+
+        // STAGE 2: After a delay, delete the world files.
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            plugin.getLogger().info("[Reset Stage 2/3] Deleting world files for The End...");
+            try {
+                deleteDirectory(worldFolder);
+            } catch (IOException e) {
+                plugin.getLogger().severe("RESET FAILED: Could not delete The End world files. Check file permissions.");
+                e.printStackTrace();
+                cleanupTasks();
+                return;
+            }
+
+            // STAGE 3: After another delay, recreate the world.
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                plugin.getLogger().info("[Reset Stage 3/3] Recreating The End dimension...");
+                Bukkit.createWorld(new WorldCreator("the_end").environment(World.Environment.THE_END));
+                plugin.getLogger().info("SUCCESS: The End dimension has been reset.");
+                cleanupTasks();
+            }, 20L); // 1 second delay for recreation
+
+        }, 20L); // 1 second delay for deletion
+    }
+    
+    /**
+     * A helper method to recursively delete a directory and its contents.
+     * This is more reliable than the previous Files.walk method.
+     * @param directory The directory to delete.
+     * @throws IOException if the deletion fails.
+     */
+    private void deleteDirectory(File directory) throws IOException {
+        if (directory.exists()) {
+            File[] files = directory.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isDirectory()) {
+                        deleteDirectory(file);
+                    } else {
+                        if (!file.delete()) {
+                            throw new IOException("Failed to delete file: " + file);
+                        }
+                    }
+                }
+            }
+            if (!directory.delete()) {
+                throw new IOException("Failed to delete directory: " + directory);
+            }
+        }
     }
 
+
     // --- (All other methods are identical to the previous version) ---
-    // (onCommand, handlePreview, exitPreviewMode, isPreviewing, onTabComplete, all handle... methods, etc.)
+    // (onCommand, handlePreview, exitPreviewMode, etc. are all the same)
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
@@ -73,14 +126,11 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.GRAY + "Use /dr <reset|cancel|confirm|status|reload|preview>");
             return true;
         }
-
         String subCommand = args[0].toLowerCase();
-
         if (subCommand.equals("confirm")) {
             handleConfirm(sender);
             return true;
         }
-
         switch (subCommand) {
             case "reset":
                 if (!sender.hasPermission("dimensionsreset.admin")) { noPerm(sender); return true; }
@@ -114,24 +164,37 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             return;
         }
         String previewAction = args[1].toLowerCase();
-
         if (previewAction.equals("seed")) {
             World overworld = Bukkit.getWorlds().get(0);
             long seed = overworld.getSeed();
             sender.sendMessage(getMessage("preview.seed_message").replace("%seed%", String.valueOf(seed)));
             return;
         }
-
         if (!(sender instanceof Player player)) {
             sender.sendMessage(getMessage("preview.error_players_only"));
             return;
         }
-
         switch (previewAction) {
             case "before" -> enterPreviewMode(player);
             case "exit" -> exitPreviewMode(player, true);
             default -> sender.sendMessage(ChatColor.RED + "Unknown preview action. Use <before|exit|seed>");
         }
+    }
+    private void enterPreviewMode(Player player) {
+        if (isPreviewing(player)) {
+            player.sendMessage(getMessage("preview.error_already_in_preview"));
+            return;
+        }
+        World endWorld = Bukkit.getWorld("the_end");
+        if (endWorld == null) {
+            player.sendMessage(getMessage("preview.error_end_not_found"));
+            return;
+        }
+        PlayerState originalState = new PlayerState(player.getLocation(), player.getGameMode());
+        previewingPlayers.put(player.getUniqueId(), originalState);
+        player.setGameMode(GameMode.SPECTATOR);
+        player.teleport(new Location(endWorld, 0, 100, 0));
+        player.sendMessage(getMessage("preview.enter_message"));
     }
     public void exitPreviewMode(Player player, boolean sendExitMessage) {
         PlayerState originalState = previewingPlayers.remove(player.getUniqueId());
@@ -151,15 +214,9 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         final List<String> completions = new ArrayList<>();
         if (args.length == 1) {
             final List<String> subCommands = new ArrayList<>();
-            if (sender.hasPermission("dimensionsreset.admin")) {
-                subCommands.addAll(Arrays.asList("reset", "cancel", "status", "confirm"));
-            }
-            if (sender.hasPermission("dimensionsreset.reload")) {
-                subCommands.add("reload");
-            }
-            if (sender.hasPermission("dimensionsreset.preview")) {
-                subCommands.add("preview");
-            }
+            if (sender.hasPermission("dimensionsreset.admin")) { subCommands.addAll(Arrays.asList("reset", "cancel", "status", "confirm")); }
+            if (sender.hasPermission("dimensionsreset.reload")) { subCommands.add("reload"); }
+            if (sender.hasPermission("dimensionsreset.preview")) { subCommands.add("preview"); }
             StringUtil.copyPartialMatches(args[0], subCommands, completions);
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("reset")) {
@@ -254,40 +311,6 @@ public class DRCommand implements CommandExecutor, TabCompleter {
                 countdownTasks.add(countdownTask);
             }
         }
-    }
-    private void resetTheEnd() {
-        Bukkit.broadcastMessage(getMessage("messages.reset-now"));
-        playSound(plugin.getConfig().getString("sounds.reset_success", "entity.wither.death"));
-        World endWorld = Bukkit.getWorld("the_end");
-        if (endWorld == null) {
-            plugin.getLogger().warning("The End dimension is not loaded. Cannot reset.");
-            cleanupTasks();
-            return;
-        }
-        Location spawnLocation = Bukkit.getWorlds().get(0).getSpawnLocation();
-        for (Player player : endWorld.getPlayers()) {
-            player.teleport(spawnLocation);
-            player.sendMessage(ChatColor.GREEN + "The End is resetting! You have been teleported to safety.");
-        }
-        if (!Bukkit.unloadWorld(endWorld, false)) {
-            plugin.getLogger().severe("Failed to unload The End!");
-            cleanupTasks();
-            return;
-        }
-        try {
-            Files.walk(endWorld.getWorldFolder().toPath()).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
-        } catch (IOException e) {
-            plugin.getLogger().severe("An error occurred while deleting The End files.");
-            e.printStackTrace();
-            cleanupTasks();
-            return;
-        }
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            plugin.getLogger().info("Recreating The End dimension...");
-            Bukkit.createWorld(new WorldCreator("the_end").environment(World.Environment.THE_END));
-            plugin.getLogger().info("The End dimension has been successfully reset.");
-        }, 20L);
-        cleanupTasks();
     }
     public void cancelAllTasks() {
         if (mainResetTask != null) mainResetTask.cancel();

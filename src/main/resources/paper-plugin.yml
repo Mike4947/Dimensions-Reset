@@ -1,7 +1,5 @@
-# This is the modern Paper plugin file.
-# Paper servers prioritize this file over plugin.yml.
 name: DimensionsReset
-version: 'v1.0' # This gets the version from your pom.xml during build
+version: 'v1.0
 main: com.example.dimensionsreset.DimensionsReset
 api-version: '1.21'
 author: Mike4947
@@ -11,10 +9,12 @@ description: A plugin to reset dimensions in Minecraft.
 commands:
   dr:
     description: Main command for DimensionsReset.
-    usage: /dr reset the_end <time|now>
-    permission: dimensionsreset.admin
-
+    usage: "/dr <reset|cancel|confirm|status|reload>"
+    aliases: [dims, dreset]
 permissions:
   dimensionsreset.admin:
-    description: Allows user to use the /dr command to reset dimensions.
+    description: Allows use of reset, cancel, and status commands.
+    default: op
+  dimensionsreset.reload:
+    description: Allows use of the /dr reload command.
     default: op

@@ -23,7 +23,6 @@ public class DRCommand implements CommandExecutor {
 
     private final DimensionsReset plugin;
 
-    // --- Fields for new features ---
     private CommandSender senderAwaitingConfirmation = null;
     private BukkitTask confirmationTask = null;
     private BukkitTask mainResetTask = null;
@@ -39,7 +38,6 @@ public class DRCommand implements CommandExecutor {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
-            // Show usage or version info if no arguments are provided
             sender.sendMessage(ChatColor.GOLD + "DimensionsReset v2.0 by Mike4947");
             sender.sendMessage(ChatColor.GRAY + "Use /dr <reset|cancel|confirm|status|reload>");
             return true;
@@ -47,13 +45,11 @@ public class DRCommand implements CommandExecutor {
 
         String subCommand = args[0].toLowerCase();
 
-        // Handle commands that don't need admin permissions first
         if (subCommand.equals("confirm")) {
             handleConfirm(sender);
             return true;
         }
 
-        // Handle permission-based commands
         switch (subCommand) {
             case "reset":
                 if (!sender.hasPermission("dimensionsreset.admin")) {
@@ -70,7 +66,7 @@ public class DRCommand implements CommandExecutor {
                 handleCancel(sender);
                 break;
             case "status":
-                if (!sender.hasPermission("dimensionsreset.admin")) {
+                 if (!sender.hasPermission("dimensionsreset.admin")) {
                     sender.sendMessage(getMessage("messages.error-no-permission"));
                     return true;
                 }
@@ -103,16 +99,14 @@ public class DRCommand implements CommandExecutor {
         String timeArg = args[2];
 
         if (timeArg.equalsIgnoreCase("now")) {
-            // Start the confirmation process
             senderAwaitingConfirmation = sender;
             sender.sendMessage(getMessage("confirmation.required_message"));
-            // Schedule the confirmation to expire
             confirmationTask = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 if (senderAwaitingConfirmation != null) {
                     sender.sendMessage(getMessage("confirmation.expired_message"));
                     senderAwaitingConfirmation = null;
                 }
-            }, 300L); // 15 seconds (15 * 20 ticks)
+            }, 300L); 
         } else {
             try {
                 long timeInSeconds = parseTime(timeArg);
@@ -128,20 +122,19 @@ public class DRCommand implements CommandExecutor {
             sender.sendMessage(getMessage("confirmation.not_required_message"));
             return;
         }
-        // Confirmation successful
         sender.sendMessage(getMessage("confirmation.success_message"));
         senderAwaitingConfirmation = null;
         if (confirmationTask != null) confirmationTask.cancel();
-
+        
         resetTheEnd();
     }
-
+    
     private void handleCancel(CommandSender sender) {
         if (mainResetTask == null) {
             sender.sendMessage(ChatColor.RED + "There is no reset scheduled to cancel.");
             return;
         }
-
+        
         cancelAllTasks();
         Bukkit.broadcastMessage(getMessage("messages.reset-cancelled"));
         sender.sendMessage(ChatColor.GREEN + "Scheduled reset has been successfully cancelled.");
@@ -152,10 +145,10 @@ public class DRCommand implements CommandExecutor {
             sender.sendMessage(getMessage("messages.status-not-scheduled"));
             return;
         }
-
+        
         long remainingSeconds = Duration.between(Instant.now(), resetTime).getSeconds();
         if (remainingSeconds < 0) remainingSeconds = 0;
-
+        
         sender.sendMessage(getMessage("messages.status-scheduled").replace("%time%", formatTime(remainingSeconds)));
     }
 
@@ -168,15 +161,12 @@ public class DRCommand implements CommandExecutor {
         long timeInTicks = timeInSeconds * 20L;
         resetTime = Instant.now().plusSeconds(timeInSeconds);
 
-        // Announce the scheduled reset
         String scheduledMessage = getMessage("messages.reset-scheduled").replace("%time%", formatTime(timeInSeconds));
         Bukkit.broadcastMessage(scheduledMessage);
-        playSound(plugin.getConfig().getString("sounds.reset_scheduled", "ENTITY_PLAYER_LEVELUP"));
+        playSound(plugin.getConfig().getString("sounds.reset_scheduled", "entity.player.levelup"));
 
-        // Schedule the main reset task
         mainResetTask = plugin.getServer().getScheduler().runTaskLater(plugin, this::resetTheEnd, timeInTicks);
 
-        // Schedule countdown broadcasts
         List<Integer> countdownTimes = plugin.getConfig().getIntegerList("countdown_broadcast_times");
         for (int countdownSeconds : countdownTimes) {
             if (timeInSeconds >= countdownSeconds) {
@@ -184,7 +174,7 @@ public class DRCommand implements CommandExecutor {
                 BukkitTask countdownTask = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                     String countdownMessage = getMessage("messages.reset-scheduled").replace("%time%", formatTime(countdownSeconds));
                     Bukkit.broadcastMessage(countdownMessage);
-                    playSound(plugin.getConfig().getString("sounds.countdown_tick", "BLOCK_NOTE_BLOCK_HAT"));
+                    playSound(plugin.getConfig().getString("sounds.countdown_tick", "block.note_block.hat"));
                 }, delayTicks);
                 countdownTasks.add(countdownTask);
             }
@@ -193,8 +183,8 @@ public class DRCommand implements CommandExecutor {
 
     private void resetTheEnd() {
         Bukkit.broadcastMessage(getMessage("messages.reset-now"));
-        playSound(plugin.getConfig().getString("sounds.reset_success", "ENTITY_WITHER_DEATH"));
-
+        playSound(plugin.getConfig().getString("sounds.reset_success", "entity.wither.death"));
+        
         World endWorld = Bukkit.getWorld("the_end");
         if (endWorld == null) {
             plugin.getLogger().warning("The End dimension is not loaded. Cannot reset.");
@@ -223,17 +213,17 @@ public class DRCommand implements CommandExecutor {
             return;
         }
 
-        // Recreate the world after a short delay
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             plugin.getLogger().info("Recreating The End dimension...");
             Bukkit.createWorld(new WorldCreator("the_end").environment(World.Environment.THE_END));
             plugin.getLogger().info("The End dimension has been successfully reset.");
-        }, 20L); // 1 second delay
+        }, 20L);
 
         cleanupTasks();
     }
 
-    private void cancelAllTasks() {
+    /** This is now public **/
+    public void cancelAllTasks() {
         if (mainResetTask != null) mainResetTask.cancel();
         for (BukkitTask task : countdownTasks) task.cancel();
         cleanupTasks();
@@ -244,20 +234,16 @@ public class DRCommand implements CommandExecutor {
         resetTime = null;
         countdownTasks.clear();
     }
-
-    // --- UTILITY METHODS ---
-
-    // NEW MODERN METHOD. wtf even is this
+    
     private void playSound(String soundKey) {
         if (soundKey == null || soundKey.isEmpty()) {
-            return; // Don't try to play an empty sound
+            return;
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
-            // This is the new, non-deprecated way. It plays the sound directly from its key.
             player.playSound(player.getLocation(), soundKey, 1.0f, 1.0f);
         }
     }
-
+    
     private String getMessage(String path) {
         String message = plugin.getConfig().getString(path, "&cMessage not found in config.yml: " + path);
         return ChatColor.translateAlternateColorCodes('&', message);
@@ -281,7 +267,6 @@ public class DRCommand implements CommandExecutor {
         return totalSeconds;
     }
 
-//time manager format
     private String formatTime(long totalSeconds) {
         if (totalSeconds < 0) totalSeconds = 0;
         long hours = totalSeconds / 3600;

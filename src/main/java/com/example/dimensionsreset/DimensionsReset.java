@@ -11,7 +11,6 @@ import java.util.List;
 
 public final class DimensionsReset extends JavaPlugin {
 
-    // Instances for ALL plugin features
     private DRCommand commandHandler;
     private DataManager dataManager;
     private RegionManager regionManager;
@@ -26,12 +25,11 @@ public final class DimensionsReset extends JavaPlugin {
         this.dataManager = new DataManager(this);
         this.regionManager = new RegionManager(this);
         this.resetHandler = new ResetHandler(this);
-        // --- THIS IS THE CORRECTED INITIALIZATION FLOW ---
         this.wandManager = new WandManager(this); // WandManager is created here
-        // The command handler now gets the single, correct instance of WandManager
+        // The command handler now gets the single, correct instance of every manager
         this.commandHandler = new DRCommand(this, dataManager, regionManager, resetHandler, wandManager);
 
-        // Register commands (this remains the same)
+        // Register commands
         try {
             final Field bukkitCommandMap = getServer().getClass().getDeclaredField("commandMap");
             bukkitCommandMap.setAccessible(true);
@@ -51,7 +49,7 @@ public final class DimensionsReset extends JavaPlugin {
             return;
         }
 
-        // Register event listeners
+        // Register event listeners for both the wand and player portal/quit events
         getServer().getPluginManager().registerEvents(this.wandManager, this);
         getServer().getPluginManager().registerEvents(new PlayerListener(this.commandHandler), this);
 
@@ -69,8 +67,7 @@ public final class DimensionsReset extends JavaPlugin {
         }
         getLogger().info("DimensionsReset has been disabled.");
     }
-    
-    // Getter for other classes to access the command handler if needed
+
     public DRCommand getCommandHandler() {
         return commandHandler;
     }

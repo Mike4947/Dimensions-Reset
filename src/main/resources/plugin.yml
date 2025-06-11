@@ -1,20 +1,12 @@
-# This is the traditional Bukkit/Spigot plugin file.
-# It's used as a fallback if paper-plugin.yml isn't present or on non-Paper servers.
+# This file is for classic Bukkit/Spigot command registration.
 name: DimensionsReset
-version: 1.0
+version: 'v1.0'
 main: com.example.dimensionsreset.DimensionsReset
 api-version: '1.21'
-author: Mike4947
-website: https://github.com/Mike4947/Dimensions-Reset
-description: A plugin to reset dimensions in Minecraft.
-
+# We define the commands here for Bukkit's command system to see.
 commands:
   dr:
     description: Main command for DimensionsReset.
-    usage: /dr reset the_end <time|now>
+    usage: "/dr <reset|cancel|confirm|status|reload>"
+    aliases: [dims, dreset]
     permission: dimensionsreset.admin
-
-permissions:
-  dimensionsreset.admin:
-    description: Allows user to use the /dr command to reset dimensions.
-    default: op

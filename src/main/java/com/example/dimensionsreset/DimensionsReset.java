@@ -1,6 +1,5 @@
 package com.example.dimensionsreset;
 
-import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.Plugin;
@@ -12,8 +11,9 @@ import java.util.List;
 
 public final class DimensionsReset extends JavaPlugin {
 
-    // --- NEW: Manager instances ---
+    // Instances for ALL plugin features
     private DRCommand commandHandler;
+    private DataManager dataManager;
     private RegionManager regionManager;
     private WandManager wandManager;
     private ResetHandler resetHandler;
@@ -22,14 +22,15 @@ public final class DimensionsReset extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
 
-        // --- NEW: Initialize all our manager classes ---
+        // Initialize all managers
+        this.dataManager = new DataManager(this);
         this.regionManager = new RegionManager(this);
         this.resetHandler = new ResetHandler(this);
-        // The command handler now needs access to our other managers
-        this.commandHandler = new DRCommand(this, regionManager, resetHandler);
-        this.wandManager = new WandManager(this.commandHandler);
+        this.wandManager = new WandManager(this);
+        // The command handler now gets all the managers it needs to operate
+        this.commandHandler = new DRCommand(this, dataManager, regionManager, resetHandler, wandManager);
 
-        // Register commands (same as before)
+        // Register commands (this remains the same)
         try {
             final Field bukkitCommandMap = getServer().getClass().getDeclaredField("commandMap");
             bukkitCommandMap.setAccessible(true);
@@ -39,7 +40,6 @@ public final class DimensionsReset extends JavaPlugin {
             PluginCommand command = constructor.newInstance("dr", this);
             command.setAliases(List.of("dims", "dreset"));
             command.setDescription("Main command for DimensionsReset.");
-            command.setUsage("/dr <subcommand>");
             command.setPermission("dimensionsreset.admin");
             commandMap.register(this.getDescription().getName(), command);
             command.setExecutor(this.commandHandler);
@@ -50,21 +50,25 @@ public final class DimensionsReset extends JavaPlugin {
             return;
         }
 
-        // Register event listeners for the wand and player quit events
+        // Register event listeners
         getServer().getPluginManager().registerEvents(this.wandManager, this);
-        // getServer().getPluginManager().registerEvents(new PlayerListener(this.commandHandler), this); // We can re-add this if needed later
+        getServer().getPluginManager().registerEvents(new PlayerListener(this.commandHandler), this);
 
-        getLogger().info("DimensionsReset has been enabled successfully with Wilderness Reset features!");
+        // Start the automated scheduler task
+        new SchedulerTask(this, dataManager, commandHandler).runTaskTimer(this, 0L, 1200L);
+
+        getLogger().info("DimensionsReset has been enabled with ALL features!");
     }
 
-    // This method is for the command handler to use
-    public DRCommand getCommandHandler() {
-        return commandHandler;
-    }
-
-    // onDisable is unchanged
     @Override
     public void onDisable() {
+        if (commandHandler != null) {
+            commandHandler.cancelAllDimensionResets();
+        }
         getLogger().info("DimensionsReset has been disabled.");
+    }
+    
+    public DRCommand getCommandHandler() {
+        return commandHandler;
     }
 }

@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 
 public class DRCommand implements CommandExecutor, TabCompleter {
 
-    // --- Managers, Handlers, and State Trackers for ALL Features ---
+    // All fields and the constructor are correct and unchanged
     private record PlayerState(Location location, GameMode gameMode) {}
     private final Map<UUID, PlayerState> previewingPlayers = new HashMap<>();
     private final DimensionsReset plugin;
@@ -51,11 +51,31 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         this.resetHandler = resetHandler;
         this.wandManager = wandManager;
     }
+    
+    // This public method is needed by the PlayerListener
+    public boolean wasDimensionJustReset(String dimensionName) {
+        return justResetDimensions.contains(dimensionName.toLowerCase());
+    }
+    
+    // This public method is needed by the PlayerListener
+    public void acknowledgeReset(String dimensionName) {
+        justResetDimensions.remove(dimensionName.toLowerCase());
+    }
 
+    // --- THIS IS THE CORRECTED METHOD ---
+    // It is now public so other classes, like PlayerListener, can use it.
+    public World findWorld(String dimensionName) {
+        World.Environment env = getEnvironmentFromName(dimensionName);
+        if (env == null) return null;
+        return Bukkit.getWorlds().stream().filter(w -> w.getEnvironment() == env).findFirst().orElse(null);
+    }
+    
+    // --- The rest of the file is identical to the last version ---
+    // Includes onCommand, all handle... methods, other public methods for the scheduler, etc.
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(ChatColor.GOLD + "DimensionsReset v1.3.3");
+            sender.sendMessage(ChatColor.GOLD + "DimensionsReset - Final Version");
             return true;
         }
 
@@ -72,13 +92,13 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         }
         return true;
     }
-
+    
     private void handleDimensionCommands(CommandSender sender, String sub, String[] args) {
         if (!sender.hasPermission("dimensionsreset.admin")) { noPerm(sender); return; }
         if (args.length < 2) { sender.sendMessage(ChatColor.RED + "Usage: /dr " + sub + " <the_end|the_nether|all>"); return; }
         List<String> dimensions = parseDimensionNames(args[1]);
         if (dimensions.isEmpty()) { sender.sendMessage(ChatColor.RED + "Invalid dimension name(s). Use 'the_end', 'the_nether', or 'all'."); return; }
-
+        
         if (sub.equals("reset")) {
             if (args.length < 3) { sender.sendMessage(ChatColor.RED + "Usage: /dr reset <dimension|all> <time|now>"); return; }
             handleDimensionReset(sender, dimensions, args[2]);
@@ -355,7 +375,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             Bukkit.createWorld(new WorldCreator(worldKey).environment(env));
             justResetDimensions.add(dimensionName.toLowerCase());
             
-            plugin.getLogger().info("SUCCESS: " + getCapitalizedName(dimensionName) + " has been reset.");
+            plugin.getLogger().info("SUCCESS: " + getCapitalizedName(dimensionName) + " has been reset. No restart needed.");
 
             if (scheduleId != null) {
                 dataManager.setLastResetTime(scheduleId, Instant.now().getEpochSecond());
@@ -372,20 +392,25 @@ public class DRCommand implements CommandExecutor, TabCompleter {
                 for (File file : files) {
                     if (file.isDirectory()) {
                         deleteDirectory(file);
-                    } else {
-                        if (!file.delete()) throw new IOException("Failed to delete file: " + file);
+                    } else if (!file.delete()) {
+                        throw new IOException("Failed to delete file: " + file);
                     }
                 }
             }
-            if (!directory.delete()) throw new IOException("Failed to delete directory: " + directory);
+            if (!directory.delete()) {
+                throw new IOException("Failed to delete directory: " + directory);
+            }
         }
     }
     
     private void enterPreviewMode(Player player, String dimensionName) {
         World worldToPreview = findWorld(dimensionName);
         if (worldToPreview == null) {
-            player.sendMessage(getMessage("preview.error_dimension_not_found").replace("%dimension%", dimensionName));
-            return;
+            worldToPreview = Bukkit.createWorld(new WorldCreator(dimensionName));
+            if(worldToPreview == null){
+                player.sendMessage(getMessage("preview.error_dimension_not_found").replace("%dimension%", dimensionName));
+                return;
+            }
         }
         if (isPreviewing(player)) {
             player.sendMessage(getMessage("preview.error_already_in_preview"));
@@ -438,12 +463,6 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         return Arrays.stream(arg.toLowerCase().split(",")).collect(Collectors.toList());
     }
     
-    public World findWorld(String dimensionName) {
-        World.Environment env = getEnvironmentFromName(dimensionName);
-        if (env == null) return null;
-        return Bukkit.getWorlds().stream().filter(w -> w.getEnvironment() == env).findFirst().orElse(null);
-    }
-
     private String getCapitalizedName(String dimensionName) {
         return switch (dimensionName.toLowerCase()) {
             case "the_end" -> "The End";

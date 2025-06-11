@@ -1,7 +1,7 @@
 # This file is for modern Paper-specific metadata.
 # Commands are now defined in plugin.yml to ensure compatibility.
 name: DimensionsReset
-version: 'v1.0'
+version: '${project.version}'
 main: com.example.dimensionsreset.DimensionsReset
 api-version: '1.21'
 author: Mike4947
@@ -17,3 +17,6 @@ permissions:
   dimensionsreset.reload:
     description: Allows use of the /dr reload command.
     default: op
+  dimensionsreset.preview:
+      description: Allows use of the /dr preview command.
+      default: op  

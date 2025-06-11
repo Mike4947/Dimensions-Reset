@@ -54,10 +54,21 @@ public class DataManager {
 
     // --- Custom Methods for our data ---
 
-    public longgetLastResetTime(String scheduleId) {
+    /**
+     * Gets the last reset time for a given schedule ID.
+     * @param scheduleId The unique ID of the schedule.
+     * @return The timestamp of the last reset, or 0 if never run.
+     */
+    // ▼ THIS IS THE CORRECTED LINE ▼
+    public long getLastResetTime(String scheduleId) {
         return getConfig().getLong("last-reset-times." + scheduleId, 0L);
     }
 
+    /**
+     * Sets the last reset time for a given schedule ID.
+     * @param scheduleId The unique ID of the schedule.
+     * @param timestamp The current timestamp to save.
+     */
     public void setLastResetTime(String scheduleId, long timestamp) {
         getConfig().set("last-reset-times." + scheduleId, timestamp);
         saveConfig();

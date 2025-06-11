@@ -32,6 +32,17 @@ dimension_reset_messages:
   status_scheduled: "&aA reset for %dimension% is scheduled in &e%time%&a."
   status_not_scheduled: "&eThere is no reset currently scheduled for %dimension%."
 
+  # After a dimension is reset, the plugin will schedule a server restart to ensure
+  # the new world is loaded correctly and all portals work.
+  restart_manager:
+    # Enable the automatic restart after a reset.
+    # ONLY TURN TO 'FALSE' IF YOU KNOW WHAT YOU ARE DOING!
+    enabled: true
+    # Delay in seconds before the server restarts.
+    delay: 30
+    # The message broadcast to all players before the restart.
+    broadcast_message: "&c&lThe dimension has been reset! The server will restart in %time% seconds to load the new world."
+
 wilderness_reset:
   wand_give: "&d✨ &aYou have received the Protection Wand! &7(Left-click for Pos1, Right-click for Pos2)"
   pos1_set: "&aPosition 1 set. &7(&e%location%&7)"

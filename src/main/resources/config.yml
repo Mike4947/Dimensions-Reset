@@ -1,69 +1,76 @@
 # -------------------------------------------------- #
-#             DimensionsReset Config                 #
+#        DimensionsReset Config - Reorganized        #
 # -------------------------------------------------- #
 
-# Settings for the confirmation system for '/dr reset now'
-confirmation:
-  # Message sent when confirmation is required.
-  required_message: "&e&lWARNING! &7You are about to reset The End immediately. This cannot be undone. Type &a/dr confirm &7within 15 seconds to proceed."
-  # Message sent if the user confirms successfully.
-  success_message: "&aConfirmation received. Initiating reset..."
-  # Message sent if the 15-second confirmation window expires.
-  expired_message: "&cConfirmation expired. The reset has been cancelled."
-  # Message sent to a user who types /dr confirm when it's not needed.
-  not_required_message: "&cThere is nothing to confirm."
+# Controls the fully automated, recurring dimension resets.
+automated_resets:
+  enabled: true
+  schedules:
+    - id: "weekly_end_reset"
+      dimension: "the_end"
+      announcement_time: "1h"
+      schedule:
+        type: "INTERVAL"
+        value: "7d"
 
-# Broadcast messages for server-wide announcements
-messages:
-  reset-now: "&c&lThe End dimension is being reset NOW!"
-  reset-scheduled: "&a&lThe End dimension will be reset in %time%."
-  reset-cancelled: "&eThe scheduled reset for The End has been cancelled."
-  # Message for the /dr status command
-  status-scheduled: "&aA reset for The End is scheduled in &e%time%&a."
-  status-not-scheduled: "&eThere is no reset currently scheduled for The End."
-  # Message sent when the config is reloaded
-  config-reloaded: "&aDimensionsReset configuration has been reloaded."
-  # Generic error messages
-  error-no-permission: "&cYou do not have permission to use this command."
-  error-invalid-time: "&cInvalid time format. Use a format like '1h30m10s'."
+# A list of dimensions that reset when using '/dr reset all'.
+reset-all-dimensions:
+  - "the_end"
+  - "the_nether"
 
-# Add this new 'preview' section to your config.yml
+# --- Message Configuration ---
+
+dimension_reset_messages:
+  confirmation:
+    required: "&e&lWARNING! &7You are about to immediately reset &e%dimension%&7. Type &a/dr confirm &7to proceed."
+    success: "&aConfirmation received. Initiating reset for &e%dimension%&a..."
+    expired: "&cConfirmation expired. Reset for &e%dimension%&c has been cancelled."
+    not_required: "&cThere is no pending reset to confirm."
+  reset_now: "&c&lThe %dimension% dimension is being reset NOW!"
+  reset_scheduled: "&a&lThe %dimension% dimension will be reset in %time%."
+  reset_cancelled: "&eThe scheduled reset for %dimension% has been cancelled."
+  status_scheduled: "&aA reset for %dimension% is scheduled in &e%time%&a."
+  status_not_scheduled: "&eThere is no reset currently scheduled for %dimension%."
+
+wilderness_reset:
+  wand_give: "&d✨ &aYou have received the Protection Wand! &7(Left-click for Pos1, Right-click for Pos2)"
+  pos1_set: "&aPosition 1 set. &7(&e%location%&7)"
+  pos2_set: "&aPosition 2 set. &7(&e%location%&7)"
+  region_saved: "&a✅ Protected region '&e%name%&a' has been saved."
+  region_deleted: "&c🗑️ Protected region '&e%name%&c' has been deleted."
+  region_list_header: "&6--- Saved Protected Regions ---"
+  region_list_item: "&e- %name%"
+  region_list_empty: "&eYou have not saved any protected regions yet."
+  error_no_selection: "&cYou must select two positions with the wand first!"
+  error_region_exists: "&cRegion named '&e%name%&c' already exists."
+  error_region_not_found: "&cCould not find a region named '&e%name%&c'."
+  reset:
+    confirm1: "&e&lWARNING! &7You are about to reset the wilderness for world '&e%world%&7'. This cannot be undone. Type &a/dr confirm &7to proceed."
+    confirm2: "&c&lFINAL WARNING! &4This is irreversible. &7Type &a/dr lastconfirm &7to permanently delete the chunks."
+    players_moved: "&aThe wilderness is resetting! You have been moved to a safe location."
+    start: "&aWilderness reset initiated for '&e%world%&a'. Deleting unprotected chunks..."
+    complete: "&aWilderness reset complete! Players have been returned."
 
 preview:
-  # Message sent when a player enters preview mode.
-  enter_message: "&aYou are now in preview mode. Use &e/dr preview exit &ato return."
-  # Message sent when a player leaves preview mode.
-  exit_message: "&aYou have exited preview mode and have been returned to your original location."
-  # Message sent when displaying the world seed. %seed% is the placeholder.
-  seed_message: "&aThe next End dimension will be generated using the main world's seed: &e%seed%"
-  # Error messages
+  enter_message: "&aYou are now in preview mode for &e%dimension%&a. Use &e/dr preview exit &ato return."
+  exit_message: "&aYou have exited preview mode and returned to your original location."
+  seed_message: "&aThe server's main world seed is: &e%seed%"
   error_not_in_preview: "&cYou are not currently in preview mode."
-  error_already_in_preview: "&cYou are already in preview mode. Use /dr preview exit to leave."
-  error_end_not_found: "&cThe End is not currently loaded in memory. Please have a player visit The End to load it, then try again."
+  error_already_in_preview: "&cYou are already in preview mode. Use /dr preview exit."
+  error_dimension_not_found: "&cThe &e%dimension% &cdimension is not loaded. Have a player visit it to load it, then try again."
   error_players_only: "&cThis command can only be run by a player."
 
-# A list of times (in seconds) before the reset to broadcast a countdown message.
-# You can add or remove any times you want.
-countdown_broadcast_times:
-  - 3600  # 1 hour
-  - 1800  # 30 minutes
-  - 600   # 10 minutes
-  - 300   # 5 minutes
-  - 60    # 1 minute
-  - 30    # 30 seconds
-  - 10    # 10 seconds
-  - 5
-  - 4
-  - 3
-  - 2
-  - 1
+generic_messages:
+  config_reloaded: "&aDimensionsReset configuration has been reloaded."
+  error_no_permission: "&cYou do not have permission to use this command."
+  error_invalid_time: "&cInvalid time format. Use a format like '1h30m10s'."
 
-# Sound effects played for all players during key events.
-# Find sound names here: https://minecraft.wiki/w/Sounds.json
+# --- Functional Configuration ---
+
+countdown_broadcast_times:
+  - 3600, 1800, 600, 60, 30, 10, 5, 4, 3, 2, 1
+
 sounds:
-  # Sound played when a reset is first scheduled.
   reset_scheduled: "entity.player.levelup"
-  # Sound played during the final countdown (e.g., 10, 9, 8...)
   countdown_tick: "block.note_block.hat"
-  # Sound played at the exact moment the dimension is reset.
   reset_success: "entity.wither.death"

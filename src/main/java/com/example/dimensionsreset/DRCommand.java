@@ -14,8 +14,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -26,6 +24,7 @@ import java.util.stream.Collectors;
 
 public class DRCommand implements CommandExecutor, TabCompleter {
 
+    // --- Managers, Handlers, and State Trackers for ALL Features ---
     private record PlayerState(Location location, GameMode gameMode) {}
     private final Map<UUID, PlayerState> previewingPlayers = new HashMap<>();
     private final DimensionsReset plugin;
@@ -55,7 +54,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(ChatColor.GOLD + "DimensionsReset v1.3.0");
+            sender.sendMessage(ChatColor.GOLD + "DimensionsReset v1.3.0 by Mike4947");
             return true;
         }
 
@@ -146,11 +145,11 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         }
         scheduledCountdownTasks.put(dimKey, countdowns);
     }
-
+    
     public void cancelAllDimensionResets() {
         new ArrayList<>(scheduledResetTasks.keySet()).forEach(this::cancelAllTasksForDim);
     }
-
+    
     private void handleDimensionReset(CommandSender sender, List<String> dimensions, String timeArg) {
         for (String dim : dimensions) {
             if (isResetScheduled(dim)) {
@@ -174,7 +173,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             }
         }
     }
-
+    
     private void handleConfirm(CommandSender sender) {
         List<String> dimensionsToReset = manualConfirmMap.remove(sender);
         if (dimensionsToReset != null) {
@@ -202,14 +201,14 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.RED + "The world to reset is no longer loaded. Aborting.");
             return;
         }
-
+        
         Bukkit.broadcastMessage(getMessage("wilderness_reset.reset.start").replace("%world%", this.wildernessWorldToReset));
         resetHandler.performWildernessReset(world, regionManager, () -> Bukkit.broadcastMessage(getMessage("wilderness_reset.reset.complete")));
-
+        
         this.wildernessConfirmer2 = null;
         this.wildernessWorldToReset = null;
     }
-
+    
     private void handleDimensionCancel(CommandSender sender, List<String> dimensions) {
         dimensions.forEach(dim -> {
             if (isResetScheduled(dim)) {
@@ -242,7 +241,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleWand(CommandSender sender) {
-        if (!(sender instanceof Player player)) { sender.sendMessage(getMessage("preview.error_players_only")); return; }
+        if (!(sender instanceof Player player)) { sender.sendMessage(getMessage("wilderness_reset.error_players_only")); return; }
         if (!player.hasPermission("dimensionsreset.admin")) { noPerm(sender); return; }
         player.getInventory().addItem(new ItemStack(WandManager.WAND_ITEM));
         player.sendMessage(getMessage("wilderness_reset.wand_give"));
@@ -261,7 +260,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         if (args.length < 3) { sender.sendMessage(ChatColor.RED + "Usage: /dr region <save|delete> <name>"); return; }
         String regionName = args[2];
         if (action.equals("save")) {
-            if (!(sender instanceof Player player)) { sender.sendMessage(getMessage("preview.error_players_only")); return; }
+            if (!(sender instanceof Player player)) { sender.sendMessage(getMessage("wilderness_reset.error_players_only")); return; }
             Location pos1 = wandManager.getPos1(player);
             Location pos2 = wandManager.getPos2(player);
             if (pos1 == null || pos2 == null) { sender.sendMessage(getMessage("wilderness_reset.error_no_selection")); return; }
@@ -292,7 +291,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
     private void handlePreviewCommand(CommandSender sender, String[] args) {
         if (!sender.hasPermission("dimensionsreset.preview")) { noPerm(sender); return; }
         if (args.length < 2) { sender.sendMessage(ChatColor.RED + "Usage: /dr preview <dimension|seed> [before|exit]"); return; }
-
+        
         String action = args[1].toLowerCase();
         if (action.equals("seed")) {
             World overworld = Bukkit.getWorlds().get(0);
@@ -309,11 +308,11 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         if (!(sender instanceof Player player)) { sender.sendMessage(getMessage("preview.error_players_only")); return; }
         if (args.length < 3) { sender.sendMessage(ChatColor.RED + "Usage: /dr preview " + action + " <before|exit>"); return; }
         String subAction = args[2].toLowerCase();
-
+        
         if (subAction.equals("before")) enterPreviewMode(player, action);
         else if (subAction.equals("exit")) exitPreviewMode(player, true);
     }
-
+    
     private void resetDimension(String dimensionName, @Nullable String scheduleId) {
         World worldToReset = findWorld(dimensionName);
         if (worldToReset == null) {
@@ -325,7 +324,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         Bukkit.broadcastMessage(getMessage("dimension_reset_messages.reset_now").replace("%dimension%", getCapitalizedName(dimensionName)));
         playSound(plugin.getConfig().getString("sounds.reset_success"));
 
-        plugin.getLogger().info("[Reset Stage 1/3] Teleporting players from " + worldToReset.getName());
+        plugin.getLogger().info("[Reset Stage 1/2] Teleporting players and unloading dimension...");
         Location spawnLocation = Bukkit.getWorlds().get(0).getSpawnLocation();
         for (Player player : new ArrayList<>(worldToReset.getPlayers())) {
             player.teleport(spawnLocation);
@@ -333,9 +332,6 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         }
 
         File worldFolder = worldToReset.getWorldFolder();
-        String worldKey = worldToReset.getKey().toString();
-        World.Environment env = worldToReset.getEnvironment();
-
         if (!Bukkit.unloadWorld(worldToReset, false)) {
             plugin.getLogger().severe("RESET FAILED: Failed to unload " + worldToReset.getName());
             cleanupTasksForDim(dimensionName);
@@ -343,7 +339,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         }
 
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            plugin.getLogger().info("[Reset Stage 2/3] Deleting world files for " + worldFolder.getName());
+            plugin.getLogger().info("[Reset Stage 2/2] Deleting world files for " + worldFolder.getName());
             try { deleteDirectory(worldFolder); } catch (IOException e) {
                 plugin.getLogger().severe("RESET FAILED: Could not delete world files.");
                 e.printStackTrace();
@@ -351,36 +347,36 @@ public class DRCommand implements CommandExecutor, TabCompleter {
                 return;
             }
 
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                plugin.getLogger().info("[Reset Stage 3/3] Recreating dimension " + worldKey);
-                Bukkit.createWorld(new WorldCreator(worldKey).environment(env));
+            if (plugin.getConfig().getBoolean("restart_manager.enabled", true)) {
+                long delay = plugin.getConfig().getLong("restart_manager.delay", 30);
+                String message = getMessage("restart_manager.broadcast_message").replace("%time%", String.valueOf(delay));
+                Bukkit.broadcastMessage(message);
+                plugin.getLogger().info("SUCCESS: Dimension files for '" + dimensionName + "' have been deleted. Server will restart in " + delay + " seconds.");
+                plugin.getServer().getScheduler().runTaskLater(plugin, () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "restart"), delay * 20L);
+            } else {
+                 plugin.getLogger().info("SUCCESS: Dimension files for '" + dimensionName + "' have been deleted. Please restart the server manually to load the new world.");
+            }
 
-                if (scheduleId != null) {
-                    dataManager.setLastResetTime(scheduleId, Instant.now().getEpochSecond());
-                    plugin.getLogger().info("Updated last reset time for schedule: " + scheduleId);
-                }
-                plugin.getLogger().info("SUCCESS: " + getCapitalizedName(dimensionName) + " has been reset.");
-                cleanupTasksForDim(dimensionName);
-            }, 20L);
+            if (scheduleId != null) {
+                dataManager.setLastResetTime(scheduleId, Instant.now().getEpochSecond());
+                plugin.getLogger().info("Updated last reset time for schedule: " + scheduleId);
+            }
+            cleanupTasksForDim(dimensionName);
         }, 20L);
     }
-
+    
     private void deleteDirectory(File directory) throws IOException {
-        if (directory.exists()) {
-            File[] files = directory.listFiles();
-            if (files != null) {
-                for (File file : files) {
-                    if (file.isDirectory()) {
-                        deleteDirectory(file);
-                    } else {
-                        if (!file.delete()) throw new IOException("Failed to delete file: " + file);
-                    }
-                }
+        if (!directory.exists()) return;
+        File[] files = directory.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) deleteDirectory(file);
+                else if (!file.delete()) throw new IOException("Failed to delete file: " + file);
             }
-            if (!directory.delete()) throw new IOException("Failed to delete directory: " + directory);
         }
+        if (!directory.delete()) throw new IOException("Failed to delete directory: " + directory);
     }
-
+    
     private void enterPreviewMode(Player player, String dimensionName) {
         World worldToPreview = findWorld(dimensionName);
         if (worldToPreview == null) {
@@ -397,7 +393,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         player.teleport(worldToPreview.getSpawnLocation());
         player.sendMessage(getMessage("preview.enter_message").replace("%dimension%", getCapitalizedName(dimensionName)));
     }
-
+    
     public void exitPreviewMode(Player player, boolean sendExitMessage) {
         PlayerState originalState = previewingPlayers.remove(player.getUniqueId());
         if (originalState == null) {
@@ -408,11 +404,11 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         player.setGameMode(originalState.gameMode());
         if (sendExitMessage) player.sendMessage(getMessage("preview.exit_message"));
     }
-
+    
     public boolean isPreviewing(Player player) {
         return previewingPlayers.containsKey(player.getUniqueId());
     }
-
+    
     public void cancelAllTasksForDim(String dimension) {
         String dimKey = dimension.toLowerCase();
         if (scheduledResetTasks.containsKey(dimKey)) scheduledResetTasks.remove(dimKey).cancel();
@@ -437,7 +433,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         }
         return Arrays.stream(arg.toLowerCase().split(",")).collect(Collectors.toList());
     }
-
+    
     private World findWorld(String dimensionName) {
         World.Environment env = getEnvironmentFromName(dimensionName);
         if (env == null) return null;
@@ -451,7 +447,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             default -> dimensionName;
         };
     }
-
+    
     private World.Environment getEnvironmentFromName(String name) {
         return switch (name.toLowerCase()) {
             case "the_end" -> World.Environment.THE_END;
@@ -459,23 +455,23 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             default -> null;
         };
     }
-
+    
     private void playSound(String soundKey) {
         if (soundKey == null || soundKey.isEmpty()) { return; }
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.playSound(player.getLocation(), soundKey, 1.0f, 1.0f);
         }
     }
-
+    
     public String getMessage(String path) {
         String message = plugin.getConfig().getString(path, "&cMessage not found: " + path);
         return ChatColor.translateAlternateColorCodes('&', message);
     }
-
+    
     private void noPerm(CommandSender sender) {
         sender.sendMessage(getMessage("generic_messages.error_no_permission"));
     }
-
+    
     private String formatTime(long totalSeconds) {
         if (totalSeconds < 0) totalSeconds = 0;
         long hours = totalSeconds / 3600;
@@ -487,7 +483,7 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         if (seconds > 0 || formattedTime.length() == 0) formattedTime.append(seconds).append("s");
         return formattedTime.toString().trim();
     }
-
+    
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
         final List<String> completions = new ArrayList<>();
@@ -523,10 +519,10 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             } else if (subCmd.equals("preview") && !args[1].equalsIgnoreCase("seed")) {
                 StringUtil.copyPartialMatches(args[2], Arrays.asList("before", "exit"), completions);
             } else if (subCmd.equals("region") && (args[1].equalsIgnoreCase("delete") || args[1].equalsIgnoreCase("save"))) {
-                StringUtil.copyPartialMatches(args[2], regionManager.getRegionNames(), completions);
+                 StringUtil.copyPartialMatches(args[2], regionManager.getRegionNames(), completions);
             }
         }
-
+        
         return completions;
     }
 }

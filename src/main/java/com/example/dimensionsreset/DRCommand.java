@@ -1,6 +1,5 @@
 package com.example.dimensionsreset;
 
-// (All imports remain the same as the previous version)
 import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -25,7 +24,6 @@ import java.util.regex.Pattern;
 
 public class DRCommand implements CommandExecutor, TabCompleter {
 
-    // (All fields from the previous version are the same)
     private record PlayerState(Location location, GameMode gameMode) {}
     private final Map<UUID, PlayerState> previewingPlayers = new HashMap<>();
     private final DimensionsReset plugin;
@@ -37,24 +35,30 @@ public class DRCommand implements CommandExecutor, TabCompleter {
     private static final Pattern TIME_PATTERN = Pattern.compile("(\\d+)([hms])");
 
     public DRCommand(DimensionsReset plugin) { this.plugin = plugin; }
-
-    // --- THIS IS THE ONLY METHOD WITH A MAJOR CHANGE ---
+    
+    // --- THIS IS THE ONLY METHOD WITH A CHANGE ---
     private void resetTheEnd() {
-        World endWorld = Bukkit.getWorld("the_end");
+        // --- v1.2.4 FIX: A much more robust way to find The End world ---
+        World endWorld = null;
+        for (World world : Bukkit.getServer().getWorlds()) {
+            if (world.getEnvironment() == World.Environment.THE_END) {
+                endWorld = world;
+                break; // We found it, no need to keep looking
+            }
+        }
+
         if (endWorld == null) {
-            plugin.getLogger().severe("RESET FAILED: The End dimension is not loaded or does not exist.");
+            plugin.getLogger().severe("RESET FAILED: Could not find any loaded world with the End environment type.");
             cleanupTasks();
             return;
         }
+        // --- End of fix ---
 
-        // Announce and play sound first
         Bukkit.broadcastMessage(getMessage("messages.reset-now"));
         playSound(plugin.getConfig().getString("sounds.reset_success", "entity.wither.death"));
 
-        // STAGE 1: Teleport all players and request the world unload.
         plugin.getLogger().info("[Reset Stage 1/3] Teleporting players and unloading The End...");
         Location spawnLocation = Bukkit.getWorlds().get(0).getSpawnLocation();
-        // Create a copy of the player list to avoid issues while iterating
         for (Player player : new ArrayList<>(endWorld.getPlayers())) {
             player.teleport(spawnLocation);
             player.sendMessage(ChatColor.GREEN + "The End is resetting! You have been teleported to safety.");
@@ -67,7 +71,6 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        // STAGE 2: After a delay, delete the world files.
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             plugin.getLogger().info("[Reset Stage 2/3] Deleting world files for The End...");
             try {
@@ -79,23 +82,16 @@ public class DRCommand implements CommandExecutor, TabCompleter {
                 return;
             }
 
-            // STAGE 3: After another delay, recreate the world.
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 plugin.getLogger().info("[Reset Stage 3/3] Recreating The End dimension...");
                 Bukkit.createWorld(new WorldCreator("the_end").environment(World.Environment.THE_END));
                 plugin.getLogger().info("SUCCESS: The End dimension has been reset.");
                 cleanupTasks();
-            }, 20L); // 1 second delay for recreation
+            }, 20L);
 
-        }, 20L); // 1 second delay for deletion
+        }, 20L);
     }
     
-    /**
-     * A helper method to recursively delete a directory and its contents.
-     * This is more reliable than the previous Files.walk method.
-     * @param directory The directory to delete.
-     * @throws IOException if the deletion fails.
-     */
     private void deleteDirectory(File directory) throws IOException {
         if (directory.exists()) {
             File[] files = directory.listFiles();
@@ -116,13 +112,12 @@ public class DRCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-
     // --- (All other methods are identical to the previous version) ---
-    // (onCommand, handlePreview, exitPreviewMode, etc. are all the same)
+    // (onCommand, handlePreview, etc.)
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(ChatColor.GOLD + "DimensionsReset v1.2.3 by Mike4947");
+            sender.sendMessage(ChatColor.GOLD + "DimensionsReset v1.2.4 by Mike4947");
             sender.sendMessage(ChatColor.GRAY + "Use /dr <reset|cancel|confirm|status|reload|preview>");
             return true;
         }
@@ -185,7 +180,13 @@ public class DRCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(getMessage("preview.error_already_in_preview"));
             return;
         }
-        World endWorld = Bukkit.getWorld("the_end");
+        World endWorld = null;
+        for (World world : Bukkit.getServer().getWorlds()) {
+            if (world.getEnvironment() == World.Environment.THE_END) {
+                endWorld = world;
+                break;
+            }
+        }
         if (endWorld == null) {
             player.sendMessage(getMessage("preview.error_end_not_found"));
             return;

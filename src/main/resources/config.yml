@@ -2,18 +2,53 @@
 #             DimensionsReset Config                 #
 # -------------------------------------------------- #
 
-# You can use standard Minecraft color codes with the '&' symbol.
-# Use %time% as a placeholder for the remaining time in the scheduled message.
-# Use %dimension% as a placeholder for the dimension name.
+# Settings for the confirmation system for '/dr reset now'
+confirmation:
+  # Message sent when confirmation is required.
+  required_message: "&e&lWARNING! &7You are about to reset The End immediately. This cannot be undone. Type &a/dr confirm &7within 15 seconds to proceed."
+  # Message sent if the user confirms successfully.
+  success_message: "&aConfirmation received. Initiating reset..."
+  # Message sent if the 15-second confirmation window expires.
+  expired_message: "&cConfirmation expired. The reset has been cancelled."
+  # Message sent to a user who types /dr confirm when it's not needed.
+  not_required_message: "&cThere is nothing to confirm."
+
+# Broadcast messages for server-wide announcements
 messages:
-  reset-now: "&c&lThe %dimension% dimension is being reset NOW!"
-  reset-scheduled: "&a&lThe %dimension% dimension will be reset in %time%."
-  reset-cancelled: "&eThe scheduled reset for the %dimension% has been cancelled."
-  error-invalid-time: "&cInvalid time format. Use a format like '1h30m10s'."
+  reset-now: "&c&lThe End dimension is being reset NOW!"
+  reset-scheduled: "&a&lThe End dimension will be reset in %time%."
+  reset-cancelled: "&eThe scheduled reset for The End has been cancelled."
+  # Message for the /dr status command
+  status-scheduled: "&aA reset for The End is scheduled in &e%time%&a."
+  status-not-scheduled: "&eThere is no reset currently scheduled for The End."
+  # Message sent when the config is reloaded
+  config-reloaded: "&aDimensionsReset configuration has been reloaded."
+  # Generic error messages
   error-no-permission: "&cYou do not have permission to use this command."
-  error-invalid-dimension: "&c'%dimension%' is not a valid or resettable dimension. You can only reset 'the_end'."
-  usage-help:
-    - "&6--- DimensionsReset Help ---"
-    - "&e/dr reset the_end now &7- Resets The End immediately."
-    - "&e/dr reset the_end <time> &7- Resets The End after a delay (e.g., 1h30m)."
-    - "&e/dr cancel the_end &7- Cancels a scheduled reset for The End."
+  error-invalid-time: "&cInvalid time format. Use a format like '1h30m10s'."
+
+# A list of times (in seconds) before the reset to broadcast a countdown message.
+# You can add or remove any times you want.
+countdown_broadcast_times:
+  - 3600  # 1 hour
+  - 1800  # 30 minutes
+  - 600   # 10 minutes
+  - 300   # 5 minutes
+  - 60    # 1 minute
+  - 30    # 30 seconds
+  - 10    # 10 seconds
+  - 5
+  - 4
+  - 3
+  - 2
+  - 1
+
+# Sound effects played for all players during key events.
+# Find sound names here: https://minecraft.wiki/w/Sounds.json
+sounds:
+  # Sound played when a reset is first scheduled.
+  reset_scheduled: "entity.player.levelup"
+  # Sound played during the final countdown (e.g., 10, 9, 8...)
+  countdown_tick: "block.note_block.hat"
+  # Sound played at the exact moment the dimension is reset.
+  reset_success: "entity.wither.death"

@@ -60,7 +60,7 @@ Have another idea? Let us know on the [GitHub Issues](https://github.com/Mike494
 
 ## 📜 License
 
-This project is licensed under the MIT License. See the [LICENSE](https://www.google.com/search?q=./LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](https://github.com/Mike4947/Dimensions-Reset/blob/main/LICENSE) file for details.
 
 -----
 

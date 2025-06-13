@@ -56,7 +56,7 @@ DimensionsReset is under active development\! Based on community feedback, here 
   * **📊 Detailed Reset Logs & Analytics:** An in-game `/dr history` command to view statistics about past resets, such as when they occurred and how long each world cycle lasted.
   * **💬 Interactive Chat Buttons:** Upgrading announcements to use modern, clickable chat components. For example, a status message could include a `[Cancel]` button that an admin can click directly in chat.
 
-Have another idea? Let us know on the [GitHub Issues](https://github.com/Mike4947/DimensionsReset/issues) page\!
+Have another idea? Let us know on the [GitHub Issues](https://github.com/Mike4947/Dimensions-Reset/issues) page\!
 
 ## 📜 License
 

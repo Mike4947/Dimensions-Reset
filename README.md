@@ -4,93 +4,59 @@
 [](https://www.google.com/search?q=https://github.com/Mike4947/DimensionsReset/releases)
 [](https://www.google.com/search?q=./LICENSE)
 
-**DimensionsReset** is a powerful and feature-rich server utility designed to handle the most requested server maintenance task: dimension resetting. Go beyond simple manual resets with a fully automated, configurable, and safe system to keep your server's worlds fresh and engaging for your players.
+**DimensionsReset** is a professional-grade server utility designed to handle the complex task of resetting dimensions. It provides a powerful, stable, and user-friendly solution for managing your server's worlds, from fully automated recurring resets to safe, manual commands.
 
 This plugin is built for **Minecraft 1.21+** and modern Paper servers.
 
 ## ✨ Core Features
 
-  * **🛡️ Safe Dimension Resets:** Reliably resets The End by unloading, deleting, and regenerating the dimension files in a carefully timed, multi-stage process to prevent errors.
-  * **🗓️ Full Automation:** The ultimate "set it and forget it" feature. Configure recurring resets based on an interval (e.g., every 7 days) or a specific day and time (e.g., every Friday at 8:00 PM).
-  * **⏰ Flexible Manual Scheduling:** Need a one-off reset? Easily schedule it to run at a future time (`1h30m`) or trigger it instantly with the `now` command.
-  * **🔭 Spectator Preview Mode:** Use `/dr preview before` to safely inspect the current state of The End in spectator mode without affecting your character's location or inventory.
-  * **🌱 Seed Information:** Use `/dr preview seed` to check the seed that will be used for the next reset, allowing you to preview the generated world in single-player or online tools.
-  * **✅ Confirmation System:** A mandatory `/dr confirm` step for all instant manual resets helps prevent catastrophic accidents.
-  * **📢 Engaging Announcements:** Keep your entire server informed with configurable countdown messages in chat, dramatic on-screen titles, and immersive sound effects.
-  * **⌨️ Smart Tab Completion:** A professional command interface that suggests subcommands, arguments, and permissions, making the plugin incredibly easy to use.
-  * **🔄 Configuration Reload:** Reload the `config.yml` on the fly with `/dr reload`.
+  * **🌀 Multi-Dimension Resets:** Reliably reset both `the_end` and `the_nether` with simple commands.
+  * **🗓️ Full Automation:** A powerful "set it and forget it" scheduler allows you to configure recurring resets based on an interval (e.g., every 7 days) or a specific day and time (e.g., every Friday at 8:00 PM).
+  * **🖥️ GUI Control Panel:** An intuitive and easy-to-use `/dr gui` command opens a menu to manage all major plugin functions with simple clicks.
+  * **🛡️ Safe, Restart-Based Workflow:** Dimension resets are finalized with an automated, configurable server restart. This is the most stable method, guaranteeing that all portals and game mechanics work perfectly every time.
+  * **🔭 Spectator Preview Mode:** Use `/dr preview before <dimension>` to safely inspect the current state of a world in spectator mode without affecting your character.
+  * **⌨️ Smart Tab Completion:** A professional command interface that suggests commands and arguments as you type, making it fast and error-proof.
+  * **📢 Engaging Announcements:** Keep your players informed with configurable countdowns, server-wide messages, and sound effects for all reset events.
+  * **✅ Confirmation System:** A mandatory `/dr confirm` step for instant manual resets prevents accidents.
 
 ## 🛠️ Installation
 
 1.  Download the latest stable release from the [Releases](https://www.google.com/search?q=https://github.com/Mike4947/DimensionsReset/releases) page.
 2.  Place the `DimensionsReset-vX.X.X.jar` file into your server's `/plugins` directory.
 3.  Start your server. The plugin will generate a `plugins/DimensionsReset/` folder containing the `config.yml` and `data.yml` files.
+4.  **Important:** For the automated restart feature to work, you must be using a startup script (like `start.sh` or `start.bat`) with a loop and have it configured in your `spigot.yml` file.
 
 ## 📋 Commands & Permissions
 
-The main command is `/dr` (aliases: `/dims`, `/dreset`).
-
 | Command | Description | Permission |
 | :--- | :--- | :--- |
-| `/dr reset the_end <time\|now>` | Schedules or initiates a reset for The End. | `dimensionsreset.admin` |
-| `/dr cancel` | Cancels any currently scheduled manual reset. | `dimensionsreset.admin` |
-| `/dr confirm` | Confirms an immediate manual reset. | `dimensionsreset.admin` |
-| `/dr status` | Checks the time remaining until the next manual reset. | `dimensionsreset.admin` |
-| `/dr preview <before\|exit\|seed>` | Enters preview mode or checks the world seed. | `dimensionsreset.preview` |
+| `/dr gui` | Opens the main control panel GUI. | `dimensionsreset.admin` |
+| `/dr reset <dim\|all> <time\|now>` | Schedules or initiates a reset for a dimension. | `dimensionsreset.admin` |
+| `/dr cancel <dim\|all>` | Cancels a scheduled reset for a dimension. | `dimensionsreset.admin` |
+| `/dr status <dim\|all>` | Checks the time remaining on a scheduled reset. | `dimensionsreset.admin` |
+| `/dr confirm` | Confirms an instant manual reset. | `dimensionsreset.admin` |
+| `/dr preview <dim\|seed> [before\|exit]`| Enters preview mode or checks the world seed. | `dimensionsreset.preview` |
 | `/dr reload` | Reloads the `config.yml` file from disk. | `dimensionsreset.reload` |
 
 ## ⚙️ Configuration (`config.yml`)
 
-The plugin is highly configurable. Here are the most important sections:
+The plugin is highly configurable. The main sections are:
 
-### Automated Resets
+  * **`automated_resets`:** The heart of the plugin. Define multiple recurring schedules here using either an `INTERVAL` (e.g., `"7d"`) or a specific `DAY_AND_TIME` (e.g., `"FRIDAY-20:00"`).
+  * **`restart_manager`:** Control the automated server restart that occurs after a reset. You can configure the delay and the broadcast message.
+  * **`dimension_reset_messages`:** Customize all messages related to standard End/Nether resets.
+  * **`preview`:** Customize messages for the preview commands.
+  * **`countdown_broadcast_times` & `sounds`:** Configure the server-wide announcements.
 
-This is the most powerful feature. You can define multiple recurring schedules in the `schedules` list.
+## 🚀 Future Roadmap
 
-```yaml
-automated_resets:
-  enabled: true
-  schedules:
-    - id: "weekly_end_reset" # A unique name for this schedule.
-      dimension: "the_end"
-      announcement_time: "1h" # How long before the reset to start the countdown.
-      schedule:
-        type: "INTERVAL" # Can be INTERVAL or DAY_AND_TIME
-        value: "7d"      # For INTERVAL: d=days, h=hours, m=minutes
+DimensionsReset is under active development\! Based on community feedback, here are some of the exciting features planned for future updates:
 
-    - id: "friday_night_end"
-      dimension: "the_end"
-      announcement_time: "30m"
-      schedule:
-        type: "DAY_AND_TIME"
-        value: "FRIDAY-20:00" # Resets every Friday at 8:00 PM server time.
-```
+  * **🗳️ Player Voting System:** A `/dr vote` command that will allow the community to initiate a vote to reset a dimension.
+  * **📊 Detailed Reset Logs & Analytics:** An in-game `/dr history` command to view statistics about past resets, such as when they occurred and how long each world cycle lasted.
+  * **💬 Interactive Chat Buttons:** Upgrading announcements to use modern, clickable chat components. For example, a status message could include a `[Cancel]` button that an admin can click directly in chat.
 
-### Other Sections
-
-  * **`confirmation`**: Customize messages for the `/dr confirm` safety system.
-  * **`messages`**: Change any server broadcast or command response. Use the `%time%` and `%seed%` placeholders where applicable.
-  * **`countdown_broadcast_times`**: A list of times (in seconds) to broadcast a countdown message.
-  * **`sounds`**: Change the sound effects for key events. Find sound keys on the [Minecraft Wiki](https://minecraft.wiki/w/Sounds.json).
-  * **`preview`**: Customize messages for the preview feature.
-
-## 💾 Data File (`data.yml`)
-
-This plugin generates a `data.yml` file inside its folder.
-
-  * **Purpose:** This file stores the timestamps of when each automated reset last occurred. This is how the plugin remembers when to run the next reset, even after a server restart.
-  * **Warning:** Please do not edit this file manually unless you know what you are doing.
-
-## 👨‍💻 Building from Source
-
-1.  Clone this repository: `git clone https://github.com/Mike4947/DimensionsReset.git`
-2.  Navigate into the directory: `cd DimensionsReset`
-3.  Build with Maven: `mvn clean package`
-4.  The finished JAR will be in the `/target` directory.
-
-## ❤️ Contributing
-
-Found a bug or have a feature request? Please open an issue on the [GitHub Issues](https://www.google.com/search?q=https://github.com/Mike4947/DimensionsReset/issues) page.
+Have another idea? Let us know on the [GitHub Issues](https://www.google.com/search?q=https://github.com/Mike4947/DimensionsReset/issues) page\!
 
 ## 📜 License
 
@@ -98,4 +64,4 @@ This project is licensed under the MIT License. See the [LICENSE](https://www.go
 
 -----
 
-*This README was last updated on June 11, 2025 (v1.2.6) .*
+*README updated on June 12*

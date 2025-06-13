@@ -1,8 +1,8 @@
 # 🌌 DimensionsReset
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/Mike4947/DimensionsReset/build.yml?branch=main&style=for-the-badge)](https://github.com/Mike4947/DimensionsReset/actions)
-[![Latest Stable Release](https://img.shields.io/github/v/release/Mike4947/DimensionsReset?label=stable&style=for-the-badge)](https://github.com/Mike4947/DimensionsReset/releases)
-[![License](https://img.shields.io/github/license/Mike4947/DimensionsReset?style=for-the-badge)](./LICENSE)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/Mike4947/Dimensions-Reset/maven.yml?branch=master&style=for-the-badge)](https://github.com/Mike4947/Dimensions-Reset/actions)
+[![Latest Release](https://img.shields.io/github/v/release/Mike4947/Dimensions-Reset?style=for-the-badge&label=stable)](https://github.com/Mike4947/Dimensions-Reset/releases)
+[![License](https://img.shields.io/github/license/Mike4947/Dimensions-Reset?style=for-the-badge)](./LICENSE)
 
 > **ℹ️ NOTE FOR DEVELOPERS**
 >

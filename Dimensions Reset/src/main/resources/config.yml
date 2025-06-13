@@ -1,0 +1,62 @@
+# -------------------------------------------------- #
+#        DimensionsReset Config - Final Version      #
+# -------------------------------------------------- #
+
+# Controls the fully automated, recurring dimension resets.
+automated_resets:
+  enabled: true
+  schedules:
+    - id: "weekly_end_reset"
+      dimension: "the_end"
+      announcement_time: "1h"
+      schedule:
+        type: "INTERVAL"
+        value: "7d"
+    - id: "monthly_nether_reset"
+      dimension: "the_nether"
+      announcement_time: "6h"
+      schedule:
+        type: "DAY_AND_TIME"
+        value: "FRIDAY-20:00"
+
+# A list of dimensions that reset when using '/dr reset all'.
+reset-all-dimensions:
+  - "the_end"
+  - "the_nether"
+
+# Messages for standard dimension resets (End/Nether).
+dimension_reset_messages:
+  confirmation:
+    required: "&e&lWARNING! &7You are about to immediately reset &e%dimension%&7. Type &a/dr confirm &7to proceed."
+    success: "&aConfirmation received. Initiating reset for &e%dimension%&a..."
+    expired: "&cConfirmation expired. Reset for &e%dimension%&c has been cancelled."
+    not_required: "&cThere is no pending reset to confirm."
+  reset_now: "&c&lThe %dimension% dimension is being reset NOW!"
+  reset_scheduled: "&a&lThe %dimension% dimension will be reset in %time%."
+  reset_cancelled: "&eThe scheduled reset for %dimension% has been cancelled."
+  status_scheduled: "&aA reset for %dimension% is scheduled in &e%time%&a."
+  status_not_scheduled: "&eThere is no reset currently scheduled for %dimension%."
+
+# Messages for the preview commands.
+preview:
+  enter_message: "&aYou are now in preview mode for &e%dimension%&a. Use &e/dr preview exit &ato return."
+  exit_message: "&aYou have exited preview mode and returned to your original location."
+  seed_message: "&aThe server's main world seed is: &e%seed%"
+  error_not_in_preview: "&cYou are not currently in preview mode."
+  error_already_in_preview: "&cYou are already in preview mode. Use /dr preview exit."
+  error_dimension_not_found: "&cThe &e%dimension% &cdimension is not loaded. Have a player visit it to load it, then try again."
+  error_players_only: "&cThis command can only be run by a player."
+
+# Generic messages used by multiple features.
+generic_messages:
+  config_reloaded: "&aDimensionsReset configuration has been reloaded."
+  error_no_permission: "&cYou do not have permission to use this command."
+  error_invalid_time: "&cInvalid time format. Use a format like '1h30m10s'."
+
+# --- Functional Configuration ---
+countdown_broadcast_times:
+  - 3600, 1800, 600, 60, 30, 10, 5, 4, 3, 2, 1
+sounds:
+  reset_scheduled: "entity.player.levelup"
+  countdown_tick: "block.note_block.hat"
+  reset_success: "entity.wither.death"

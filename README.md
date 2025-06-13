@@ -1,8 +1,14 @@
 # 🌌 DimensionsReset
 
-[](https:/github.com/Mike4947/DimensionsReset/actions)
-[](https://github.com/Mike4947/Dimensions-Reset/releases/latest)
-[](https://www.google.com/search?q=./LICENSE)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/Mike4947/DimensionsReset/build.yml?branch=main&style=for-the-badge)](https://github.com/Mike4947/DimensionsReset/actions)
+[![Latest Stable Release](https://img.shields.io/github/v/release/Mike4947/DimensionsReset?label=stable&style=for-the-badge)](https://github.com/Mike4947/DimensionsReset/releases)
+[![License](https://img.shields.io/github/license/Mike4947/DimensionsReset?style=for-the-badge)](./LICENSE)
+
+> **ℹ️ NOTE FOR DEVELOPERS**
+>
+> You are currently viewing the **`main`** branch, which contains the source code for the latest **stable release**.
+>
+> All new features and future updates are developed on the **[`master` branch](https://github.com/Mike4947/Dimensions-Reset/tree/master)**. Please submit all pull requests and contributions to that branch.
 
 **DimensionsReset** is a professional-grade server utility designed to handle the complex task of resetting dimensions. It provides a powerful, stable, and user-friendly solution for managing your server's worlds, from fully automated recurring resets to safe, manual commands.
 
@@ -10,14 +16,15 @@ This plugin is built for **Minecraft 1.21+** and modern Paper servers.
 
 ## ✨ Core Features
 
-  * **🌀 Multi-Dimension Resets:** Reliably reset both `the_end` and `the_nether` with simple commands.
-  * **🗓️ Full Automation:** A powerful "set it and forget it" scheduler allows you to configure recurring resets based on an interval (e.g., every 7 days) or a specific day and time (e.g., every Friday at 8:00 PM).
-  * **🖥️ GUI Control Panel:** An intuitive and easy-to-use `/dr gui` command opens a menu to manage all major plugin functions with simple clicks.
-  * **🛡️ Safe, Restart-Based Workflow:** Dimension resets are finalized with an automated, configurable server restart. This is the most stable method, guaranteeing that all portals and game mechanics work perfectly every time.
-  * **🔭 Spectator Preview Mode:** Use `/dr preview before <dimension>` to safely inspect the current state of a world in spectator mode without affecting your character.
-  * **⌨️ Smart Tab Completion:** A professional command interface that suggests commands and arguments as you type, making it fast and error-proof.
-  * **📢 Engaging Announcements:** Keep your players informed with configurable countdowns, server-wide messages, and sound effects for all reset events.
-  * **✅ Confirmation System:** A mandatory `/dr confirm` step for instant manual resets prevents accidents.
+* **🌀 Multi-Dimension Resets:** Reliably reset both `the_end` and `the_nether` with simple commands.
+* **🗓️ Full Automation:** A powerful "set it and forget it" scheduler allows you to configure recurring resets based on an interval or a specific day and time.
+* **🖥️ GUI Control Panel:** An intuitive and easy-to-use `/dr gui` command opens a menu to manage all major plugin functions with simple clicks.
+* **🛡️ Stable Reset Process:** Dimension resets are handled safely to ensure portals and game mechanics work perfectly after completion without requiring a server restart.
+* **🔭 Spectator Preview Mode:** Use `/dr preview before <dimension>` to safely inspect the current state of a world in spectator mode.
+* **⌨️ Smart Tab Completion:** A professional command interface that suggests commands and arguments as you type.
+* **📢 Engaging Announcements:** Keep your players informed with configurable countdowns, server-wide messages, and sound effects.
+* **✅ Confirmation System:** A mandatory `/dr confirm` step for instant manual resets prevents accidents.
+
 
 ## 🛠️ Installation
 

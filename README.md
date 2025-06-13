@@ -1,7 +1,7 @@
 # 🌌 DimensionsReset
 
-[](https://www.google.com/search?q=https://github.com/Mike4947/DimensionsReset/actions)
-[](https://www.google.com/search?q=https://github.com/Mike4947/DimensionsReset/releases)
+[](https:/github.com/Mike4947/DimensionsReset/actions)
+[](https://github.com/Mike4947/DimensionsReset/releases)
 [](https://www.google.com/search?q=./LICENSE)
 
 **DimensionsReset** is a professional-grade server utility designed to handle the complex task of resetting dimensions. It provides a powerful, stable, and user-friendly solution for managing your server's worlds, from fully automated recurring resets to safe, manual commands.
@@ -21,7 +21,7 @@ This plugin is built for **Minecraft 1.21+** and modern Paper servers.
 
 ## 🛠️ Installation
 
-1.  Download the latest stable release from the [Releases](https://www.google.com/search?q=https://github.com/Mike4947/DimensionsReset/releases) page.
+1.  Download the latest stable release from the [Releases](https://github.com/Mike4947/DimensionsReset/releases) page.
 2.  Place the `DimensionsReset-vX.X.X.jar` file into your server's `/plugins` directory.
 3.  Start your server. The plugin will generate a `plugins/DimensionsReset/` folder containing the `config.yml` and `data.yml` files.
 4.  **Important:** For the automated restart feature to work, you must be using a startup script (like `start.sh` or `start.bat`) with a loop and have it configured in your `spigot.yml` file.
@@ -56,7 +56,7 @@ DimensionsReset is under active development\! Based on community feedback, here 
   * **📊 Detailed Reset Logs & Analytics:** An in-game `/dr history` command to view statistics about past resets, such as when they occurred and how long each world cycle lasted.
   * **💬 Interactive Chat Buttons:** Upgrading announcements to use modern, clickable chat components. For example, a status message could include a `[Cancel]` button that an admin can click directly in chat.
 
-Have another idea? Let us know on the [GitHub Issues](https://www.google.com/search?q=https://github.com/Mike4947/DimensionsReset/issues) page\!
+Have another idea? Let us know on the [GitHub Issues](https://github.com/Mike4947/DimensionsReset/issues) page\!
 
 ## 📜 License
 

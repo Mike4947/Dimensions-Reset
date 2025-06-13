@@ -1,4 +1,5 @@
 com\example\dimensionsreset\DRCommand.class
+com\example\dimensionsreset\SchedulerDataHandler.class
 com\example\dimensionsreset\GUIListener.class
 com\example\dimensionsreset\DRCommand$PlayerState.class
 com\example\dimensionsreset\GUIManager.class

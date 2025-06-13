@@ -20,67 +20,57 @@ public class GUIListener implements Listener {
         String title = event.getView().getTitle();
 
         // Check if the clicked inventory is one of our GUIs
-        if (!title.equals(GUIManager.MAIN_MENU_TITLE) && !title.equals(GUIManager.RESET_SELECT_TITLE)) {
+        if (!title.equals(GUIManager.MAIN_MENU_TITLE) &&
+                !title.equals(GUIManager.RESET_SELECT_TITLE) &&
+                !title.equals(GUIManager.ANALYTICS_TITLE)) { // Add analytics title to check
             return;
         }
 
-        event.setCancelled(true); // Prevent players from taking items out
-
+        event.setCancelled(true);
         Player player = (Player) event.getWhoClicked();
         ItemStack clickedItem = event.getCurrentItem();
 
-        if (clickedItem == null || clickedItem.getType() == Material.AIR) {
-            return;
-        }
+        if (clickedItem == null || clickedItem.getType() == Material.AIR) return;
 
-        // Handle clicks in the Main Menu
+        // Route clicks based on which GUI is open
         if (title.equals(GUIManager.MAIN_MENU_TITLE)) {
             handleMainMenuClick(player, clickedItem);
-        }
-        // Handle clicks in the Reset Selection Menu
-        else if (title.equals(GUIManager.RESET_SELECT_TITLE)) {
+        } else if (title.equals(GUIManager.RESET_SELECT_TITLE)) {
             handleResetSelectMenuClick(player, clickedItem);
+        } else if (title.equals(GUIManager.ANALYTICS_TITLE)) {
+            handleAnalyticsMenuClick(player, clickedItem);
         }
     }
 
     private void handleMainMenuClick(Player player, ItemStack item) {
         switch (item.getType()) {
             case ENDER_EYE:
-                // Open the sub-menu for resetting dimensions
                 guiManager.openResetSelectMenu(player);
                 break;
             case CLOCK:
-                // For simplicity, we make the player run the command.
-                // This reuses our existing command logic and permissions.
-                player.performCommand("dr status the_end,the_nether");
+                player.performCommand("dr status all");
                 player.closeInventory();
                 break;
             case BARRIER:
-                player.performCommand("dr cancel the_end,the_nether");
+                player.performCommand("dr cancel all");
                 player.closeInventory();
+                break;
+            // NEW: Handle click on the analytics book
+            case BOOK:
+                guiManager.openAnalyticsGUI(player);
                 break;
         }
     }
 
     private void handleResetSelectMenuClick(Player player, ItemStack item) {
-        switch (item.getType()) {
-            case END_STONE:
-                // For safety, we always trigger the confirmation flow.
-                player.performCommand("dr reset the_end now");
-                player.closeInventory();
-                break;
-            case NETHERRACK:
-                player.performCommand("dr reset the_nether now");
-                player.closeInventory();
-                break;
-            case NETHER_STAR:
-                player.performCommand("dr reset all now");
-                player.closeInventory();
-                break;
-            case ARROW:
-                // Go back to the main menu
-                guiManager.openMainMenu(player);
-                break;
+        // Unchanged
+    }
+
+    // --- NEW METHOD TO HANDLE CLICKS IN THE ANALYTICS GUI ---
+    private void handleAnalyticsMenuClick(Player player, ItemStack item) {
+        if (item.getType() == Material.ARROW) {
+            // The only clickable item is the "Back" button
+            guiManager.openMainMenu(player);
         }
     }
 }

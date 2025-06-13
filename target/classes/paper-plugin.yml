@@ -1,7 +1,7 @@
 # This file is for modern Paper-specific metadata.
 # Commands are now defined in plugin.yml to ensure compatibility.
 name: DimensionsReset
-version: '1.4.1-build(1)'
+version: '1.4.1-build(11)'
 main: com.example.dimensionsreset.DimensionsReset
 api-version: '1.21'
 author: Mike4947

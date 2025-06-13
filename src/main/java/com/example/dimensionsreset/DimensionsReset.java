@@ -11,7 +11,6 @@ import java.util.List;
 
 public final class DimensionsReset extends JavaPlugin {
 
-    // Instances for all plugin features
     private DRCommand commandHandler;
     private DataManager dataManager;
     private GUIManager guiManager;
@@ -20,9 +19,10 @@ public final class DimensionsReset extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
 
-        // Initialize all our manager classes
+        // Initialize all our managers
         this.dataManager = new DataManager(this);
-        this.guiManager = new GUIManager();
+        // --- CORRECTED INITIALIZATION ---
+        this.guiManager = new GUIManager(this.dataManager); // Pass the DataManager to the GUI Manager
         this.commandHandler = new DRCommand(this, dataManager, guiManager);
 
         // Register commands
@@ -47,7 +47,7 @@ public final class DimensionsReset extends JavaPlugin {
 
         // Register ALL event listeners
         getServer().getPluginManager().registerEvents(new PlayerListener(this.commandHandler), this);
-        getServer().getPluginManager().registerEvents(new GUIListener(this.guiManager), this); // Register the new GUI listener
+        getServer().getPluginManager().registerEvents(new GUIListener(this.guiManager), this);
 
         // Start the automated scheduler task
         new SchedulerTask(this, dataManager, commandHandler).runTaskTimerAsynchronously(this, 0L, 1200L);

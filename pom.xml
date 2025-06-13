@@ -6,7 +6,7 @@
 
     <groupId>com.example.dimensionsreset</groupId>
     <artifactId>DimensionsReset</artifactId>
-    <version>1.4.0-build(4)</version>
+    <version>1.4.1-build(1)</version>
     <packaging>jar</packaging>
 
     <name>DimensionsReset</name>

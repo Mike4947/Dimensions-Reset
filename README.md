@@ -6,7 +6,7 @@
 
 > **ℹ️ NOTE FOR DEVELOPERS**
 >
-> You are currently viewing the **`main`** branch, which contains the source code for the latest **stable release**.
+> You are currently viewing the **`main`** branch, which contains the source code for a old and **unstable release**.
 >
 > All new features and future updates are developed on the **[`master` branch](https://github.com/Mike4947/Dimensions-Reset/tree/master)**. Please submit all pull requests and contributions to that branch.
 
